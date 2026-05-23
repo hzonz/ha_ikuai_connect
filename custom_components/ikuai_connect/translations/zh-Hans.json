@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接到 iKuai 路由器",
+        "description": "请输入 iKuai OpenAPI 地址和个人 API 令牌（Token）。必须使用 HTTPS。",
+        "data": {
+          "host": "主机地址 (例如 https://10.10.10.1)",
+          "token": "个人 API 令牌 (Token)"
+        }
+      },
+      "reconfigure": {
+        "title": "重新配置 iKuai 连接",
+        "description": "更新当前集成的连接地址或令牌信息。",
+        "data": {
+          "host": "主机地址",
+          "token": "个人 API 令牌 (Token)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到 iKuai，请检查地址、令牌以及是否开启了 HTTPS 服务。",
+      "invalid_auth": "令牌无效，请确保该令牌在爱快后台拥有足够的接口权限。",
+      "unknown": "发生未知错误。"
+    },
+    "abort": {
+      "already_configured": "该 iKuai 路由器已配置过。",
+      "reconfigure_successful": "重新配置成功。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "iKuai Connect 选项",
+        "data": {
+          "action": "要执行的操作",
+          "scan_interval": "数据更新间隔 (秒)",
+          "act_buffer": "全局离线判定缓冲次数"
+        }
+      },
+      "scan": {
+        "title": "选择追踪终端",
+        "description": "请勾选您想要在 HA 中追踪状态的在线终端。",
+        "data": {
+          "devices": "在线终端列表"
+        }
+      },
+      "configure_devices": {
+        "title": "配置追踪详情",
+        "description": "请为选中的终端设置显示名称和离线缓冲次数。",
+        "data": {
+          "name_": "显示名称",
+          "buffer_": "特定缓冲次数"
+        }
+      },
+      "remove": {
+        "title": "移除追踪终端",
+        "data": {
+          "devices_to_remove": "已追踪设备列表"
+        }
+      }
+    },
+    "error": {
+      "no_devices_selected": "您没有选择任何设备。",
+      "no_new_devices_found": "未发现未添加的新在线终端。"
+    }
+  },
+  "selector": {
+    "mac_acl_mode": {
+      "options": {
+        "blacklist": "黑名单模式 (阻断模式)",
+        "whitelist": "白名单模式 (放行模式)"
+      }
+    },
+    "action_steps": {
+      "options": {
+        "save": "仅保存基础设置",
+        "add_tracker": "扫描并添加新终端",
+        "remove_tracker": "移除现有终端"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_load": { "name": "CPU 使用率" },
+      "memory_usage": { "name": "内存使用率" },
+      "online_users": { "name": "在线设备总数" },
+      "connection_count": { "name": "当前连接总数" },
+      "sys_upload_speed": { "name": "总上传速度" },
+      "sys_download_speed": { "name": "总下载速度" },
+      "sys_total_up": { "name": "总上传流量" },
+      "sys_total_down": { "name": "总下载流量" },
+      "uptime": { "name": "运行时间" },
+      "temperature": { "name": "系统温度" },
+      "ap_online": { "name": "在线 AP 数量" },
+      "upgrade_status": { "name": "固件更新状态" },
+      "latest_backup": { "name": "最后备份文件" },
+      "disk_total_capacity": { "name": "物理总容量" },
+      "disk_usage_rate": { "name": "综合使用率" },
+      "disk_used_capacity": { "name": "已用总容量" },
+
+      "upload_speed": { "name": "{iface} 实时上传速度" },
+      "download_speed": { "name": "{iface} 实时下载速度" },
+      "total_up": { "name": "{iface} 累计上传流量" },
+      "total_down": { "name": "{iface} 累计下载流量" }
+    },
+    "button": {
+      "reboot": { "name": "重启路由器" },
+      "check_update": { "name": "检查固件更新" },
+      "start_upgrade": { "name": "开始固件升级" },
+      "create_backup": { "name": "立即备份系统配置" }
+    },
+    "event": {
+      "message_center": { "name": "系统消息通知" },
+      "terminal_presence": { "name": "终端上下线记录" }
+    },
+    "select": {
+      "mac_acl_mode": { "name": "全局访问控制模式" }
+    },
+    "device_tracker": {
+      "ikuai_tracker": { "name": "终端追踪" }
+    }
+  }
+}

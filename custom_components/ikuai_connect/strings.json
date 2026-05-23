@@ -1,0 +1,124 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to iKuai Router",
+        "description": "Please enter your iKuai OpenAPI address and Personal API Token (HTTPS required).",
+        "data": {
+          "host": "Host URL (e.g., https://10.10.10.1)",
+          "token": "Personal API Token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure iKuai Connection",
+        "description": "Update the host or token for the current integration.",
+        "data": {
+          "host": "Host URL",
+          "token": "Personal API Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to iKuai. Check URL, Token, and HTTPS settings.",
+      "invalid_auth": "Invalid Token or insufficient permissions.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This iKuai host is already configured.",
+      "reconfigure_successful": "Re-configuration was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "iKuai Connect Options",
+        "data": {
+          "action": "Action to perform",
+          "scan_interval": "Data Update Interval (Seconds)",
+          "act_buffer": "Global Offline Buffer Count"
+        }
+      },
+      "scan": {
+        "title": "Select Devices to Track",
+        "description": "Choose the online clients you want to add as trackers.",
+        "data": {
+          "devices": "Online Clients"
+        }
+      },
+      "configure_devices": {
+        "title": "Configure Tracker Details",
+        "description": "Set names and buffer times for selected devices.",
+        "data": {
+          "name_": "Display Name",
+          "buffer_": "Buffer Count"
+        }
+      },
+      "remove": {
+        "title": "Remove Device Trackers",
+        "data": {
+          "devices_to_remove": "Tracked Devices"
+        }
+      }
+    },
+    "error": {
+      "no_devices_selected": "No devices were selected.",
+      "no_new_devices_found": "No new clients discovered."
+    }
+  },
+  "selector": {
+    "mac_acl_mode": {
+      "options": {
+        "blacklist": "Blacklist Mode",
+        "whitelist": "Whitelist Mode"
+      }
+    },
+    "action_steps": {
+      "options": {
+        "save": "Save Settings",
+        "add_tracker": "Add Trackers",
+        "remove_tracker": "Remove Trackers"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_load": { "name": "CPU Load" },
+      "memory_usage": { "name": "Memory Usage" },
+      "online_users": { "name": "Online Users" },
+      "connection_count": { "name": "Connection Count" },
+      "sys_upload_speed": { "name": "Total Upload Speed" },
+      "sys_download_speed": { "name": "Total Download Speed" },
+      "sys_total_up": { "name": "Total Upload" },
+      "sys_total_down": { "name": "Total Download" },
+      "uptime": { "name": "Uptime" },
+      "temperature": { "name": "Temperature" },
+      "ap_online": { "name": "APs Online" },
+      "upgrade_status": { "name": "Upgrade Status" },
+      "latest_backup": { "name": "Latest Backup" },
+      "disk_total_capacity": { "name": "Total Capacity" },
+      "disk_usage_rate": { "name": "Usage Rate" },
+      "disk_used_capacity": { "name": "Used Capacity" },
+
+      "upload_speed": { "name": "{iface} Upload Speed" },
+      "download_speed": { "name": "{iface} Download Speed" },
+      "total_up": { "name": "{iface} Total Upload" },
+      "total_down": { "name": "{iface} Total Download" }
+    },
+    "button": {
+      "reboot": { "name": "Reboot" },
+      "check_update": { "name": "Check Updates" },
+      "start_upgrade": { "name": "Start Upgrade" },
+      "create_backup": { "name": "Create Backup" }
+    },
+    "event": {
+      "message_center": { "name": "System Notifications" },
+      "terminal_presence": { "name": "Terminal Activity" }
+    },
+    "select": {
+      "mac_acl_mode": { "name": "MAC Access Mode" }
+    },
+    "device_tracker": {
+      "ikuai_tracker": { "name": "Tracker" }
+    }
+  }
+}

@@ -1,0 +1,67 @@
+get_traffic_ranking:
+  name: 获取当日流量排行
+  description: 查询所有终端今天的流量使用情况汇总，单位为 MB。
+
+get_protocol_stats:
+  name: 获取设备协议分布
+  description: 查询指定终端最近 24 小时的协议分类流量统计（例如判断设备是在看视频还是下文件）。
+  fields:
+    mac:
+      name: MAC 地址
+      description: 终端的 MAC 地址。
+      required: true
+      example: "10:b7:13:91:21:9b"
+      selector:
+        text:
+    ip:
+      name: IP 地址
+      description: 终端的 IP 地址（可选，不填则尝试从缓存自动匹配）。
+      required: false
+      example: "10.10.10.158"
+      selector:
+        text:
+
+get_offline_history:
+  name: 获取离线终端历史
+  description: 查询最近 20 条终端下线记录，单位为 MB。
+
+add_mac_rule:
+  name: 添加 MAC 访问控制规则
+  description: 在爱快中创建一条新的 MAC 黑/白名单规则。创建后集成会自动生成对应的开关实体。
+  fields:
+    mac:
+      name: MAC 地址
+      description: 终端的物理地址。
+      required: true
+      example: "08:9b:4b:00:10:2e"
+      selector:
+        text:
+    tagname:
+      name: 规则名称
+      description: 显示在爱快后台和 HA 实名中的名称。
+      required: false
+      example: "孩子平板限网"
+      selector:
+        text:
+    expires:
+      name: 过期时间戳
+      description: Unix 时间戳。到期后规则自动失效。0 为永不过期。
+      required: false
+      default: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+
+delete_mac_rule:
+  name: 删除 MAC 访问控制规则
+  description: 彻底移除指定的 MAC 过滤规则。对应的 HA 开关实体将自动注销。
+  fields:
+    rule_id:
+      name: 规则 ID
+      description: 规则的唯一数字 ID（可从实体属性中查看）。
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
