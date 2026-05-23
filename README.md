@@ -1,4 +1,4 @@
-# <img src="custom_components/ikuai_connect/brand/icon.png" width="64"> iKuai Connect for Home Assistant
+# iKuai Connect for Home Assistant
 
 [![Release](https://img.shields.io/github/v/release/hzonz/ha_ikuai_connect)](https://github.com/hzonz/ha_ikuai_connect/releases)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/hzonzha_ikuai_connect/blob/main/LICENSE)
