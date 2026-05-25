@@ -118,13 +118,26 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # --- 6. 处理无线监控 (AP) ---
             wifi_data = wifi_stats_res if isinstance(wifi_stats_res, dict) else {}
             ap_status = wifi_data.get("ap_status", {})
+            clt_status = wifi_data.get("clt_status", {})
             wifi_score_data = wifi_score_res if isinstance(wifi_score_res, dict) else {}
             net_score = wifi_score_data.get("total_count_net_status", {})
             processed_sys.update({
                 "ap_online": int(ap_status.get("ap_online", 0)),
                 "wireless_detail": {
-                    "total_ap": ap_status.get("ap_count"), "signal": f"{net_score.get('coverage', 0)}%", 
-                    "delay": f"{net_score.get('delay', 0)}ms"
+                    # AP 状态详情
+                    "total_ap": ap_status.get("ap_count"),
+                    "offline_ap": ap_status.get("ap_offline"),
+                    "roaming_supported": ap_status.get("ap_roaming"),
+                    "prefer_5g_aps": ap_status.get("ap_perfer_5g"),
+                    # 无线终端分布
+                    "clients_2g": clt_status.get("clt_count_2g"),
+                    "clients_5g": clt_status.get("clt_count_5g"),
+                    "active_clients": clt_status.get("clt_active"),
+                    # 无线质量评分属性
+                    "signal_coverage": f"{net_score.get('coverage', 0)}%",
+                    "network_delay": f"{net_score.get('delay', 0)}ms",
+                    "packet_loss": f"{net_score.get('dropptk', 0)}%",
+                    "airtime_health_score": net_score.get("score_chutil_load"),
                 }
             })
 
@@ -233,9 +246,12 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # 主设备        
     @property
     def device_info(self) -> DeviceInfo:
+
+        device_name = self.config_entry.title
+
         return DeviceInfo(
             identifiers={(DOMAIN, self.host)},
-            name=self._hostname,
+            name=f"{self._hostname} {device_name}",
             manufacturer="iKuai",
             model="iKuai Router",
             sw_version=self._sw_version,
@@ -248,7 +264,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def iface_mgmt_device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, f"{self.host}_iface_mgmt")},
-            name=f"{self._hostname} 接口监控管理",
+            name=f"{self.config_entry.title} 接口监控管理",
             manufacturer="iKuai",
             model="Interface Monitor",
             via_device=(DOMAIN, self.host),
@@ -259,7 +275,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def maintenance_device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, f"{self.host}_maintenance")},
-            name=f"{self._hostname} 升级与备份管理",
+            name=f"{self.config_entry.title} 升级与备份管理",
             manufacturer="iKuai",
             model="System Maintenance",
             via_device=(DOMAIN, self.host),
@@ -270,7 +286,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def security_device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, f"{self.host}_security")},
-            name=f"{self._hostname} 安全管理",
+            name=f"{self.config_entry.title} 安全管理",
             manufacturer="iKuai",
             model="Security & Firewall",
             via_device=(DOMAIN, self.host),

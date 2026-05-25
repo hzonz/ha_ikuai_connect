@@ -6,7 +6,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL
+from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
@@ -27,9 +27,20 @@ from .helpers import extract_name_from_label
 
 _LOGGER = logging.getLogger(__name__)
 
-def get_login_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
-    if defaults is None: defaults = {}
-    return vol.Schema({
+def get_login_schema(defaults: dict[str, Any] | None = None, is_reconfigure: bool = False) -> vol.Schema:
+    """生成登录表单 Schema."""
+    if defaults is None:
+        defaults = {}
+    
+    schema = {}
+    
+    # 只有在初次安装时才显示“名称”输入框
+    if not is_reconfigure:
+        schema[vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "主路由"))] = TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        )
+        
+    schema.update({
         vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "https://10.10.10.1")): TextSelector(
             TextSelectorConfig(type=TextSelectorType.URL)
         ),
@@ -37,6 +48,7 @@ def get_login_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
     })
+    return vol.Schema(schema)
 
 class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -44,39 +56,77 @@ class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> FlowResult:
         errors = {}
         if user_input is not None:
-            try:
-                api = IkuaiAPI(self.hass, user_input[CONF_HOST], user_input[CONF_TOKEN])
-                await api.get_system_info()
-                await self.async_set_unique_id(user_input[CONF_HOST].lower())
-                self._abort_if_unique_id_configured()
+            host = user_input[CONF_HOST].rstrip("/")
+            token = user_input[CONF_TOKEN]
+            name = user_input[CONF_NAME]
 
-                return self.async_create_entry(
-                    title=f"iKuai ({user_input[CONF_HOST]})",
-                    data=user_input
-                )
-            except Exception:
-                errors["base"] = "cannot_connect"
-        return self.async_show_form(step_id="user", data_schema=get_login_schema(), errors=errors)
+            # ---校验集成名称是否重复 ---
+            current_entries = self._async_current_entries()
+            for entry in current_entries:
+                if entry.title == name:
+                    errors[CONF_NAME] = "name_exists" # 抛出名称已存在的错误
+                    break
 
-    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
+            if not errors:
+                try:
+                    api = IkuaiAPI(self.hass, host, token)
+                    await api.get_system_info()
+                    
+                    # 设置物理唯一 ID (基于 Host)
+                    await self.async_set_unique_id(host.lower())
+                    self._abort_if_unique_id_configured()
+
+                    return self.async_create_entry(
+                        title=name,
+                        data={
+                            CONF_HOST: host,
+                            CONF_TOKEN: token,
+                            CONF_TRACKER_CONFIG: {},
+                        }
+                    )
+                except Exception:
+                    errors["base"] = "cannot_connect"
+        
+        return self.async_show_form(
+            step_id="user", 
+            data_schema=get_login_schema(user_input), # 传入 user_input 以保留用户已填内容
+            errors=errors
+        )
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """处理重新配置流程."""
         errors = {}
         reconfig_entry = self._get_reconfigure_entry()
+
         if user_input is not None:
+            host = user_input[CONF_HOST].rstrip("/")
+            token = user_input[CONF_TOKEN]
+            
             try:
-                api = IkuaiAPI(self.hass, user_input[CONF_HOST], user_input[CONF_TOKEN])
+                api = IkuaiAPI(self.hass, host, token)
                 await api.get_system_info()
+                
+                # 2026 标准：只更新数据字典，不改变 entry.title
                 return self.async_update_reload_and_abort(
-                    reconfig_entry, data={**reconfig_entry.data, **user_input}
+                    reconfig_entry, 
+                    data={
+                        **reconfig_entry.data,
+                        CONF_HOST: host,
+                        CONF_TOKEN: token,
+                    }
                 )
             except Exception:
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=get_login_schema({
-                CONF_HOST: reconfig_entry.data[CONF_HOST],
-                CONF_TOKEN: reconfig_entry.data[CONF_TOKEN]
-            }),
+            data_schema=get_login_schema(
+                defaults={
+                    CONF_HOST: reconfig_entry.data[CONF_HOST],
+                    CONF_TOKEN: reconfig_entry.data[CONF_TOKEN]
+                },
+                is_reconfigure=True # 告诉 Schema 隐藏名称字段
+            ),
             errors=errors
         )
 
