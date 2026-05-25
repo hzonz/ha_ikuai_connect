@@ -3,8 +3,9 @@
     "step": {
       "user": {
         "title": "Connect to iKuai Router",
-        "description": "Please enter your iKuai OpenAPI address and Personal API Token (HTTPS required).",
+        "description": "Please enter the iKuai OpenAPI address and your personal API token. HTTPS is required. \n Allows users to set a custom name for each iKuai connection to easily distinguish different routers (e.g., Main Router, Second‑Floor Router).",
         "data": {
+          "name": "Connection Name (e.g., Main Router)",
           "host": "Host URL (e.g., https://10.10.10.1)",
           "token": "Personal API Token"
         }
@@ -21,6 +22,7 @@
     "error": {
       "cannot_connect": "Failed to connect to iKuai. Check URL, Token, and HTTPS settings.",
       "invalid_auth": "Invalid Token or insufficient permissions.",
+      "name_exists": "This integration name is already in use. Please choose another one.",
       "unknown": "Unexpected error occurred."
     },
     "abort": {
