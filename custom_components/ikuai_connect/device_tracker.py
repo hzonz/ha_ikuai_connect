@@ -63,6 +63,7 @@ class IkuaiTracker(CoordinatorEntity[IkuaiCoordinator], TrackerEntity):
     """iKuai 终端追踪实体."""
 
     _attr_has_entity_name = True
+    _attr_translation_key = "ikuai_tracker" 
 
     def __init__(self, coordinator: IkuaiCoordinator, mac: str, config: dict) -> None:
         """Initialize."""
@@ -105,5 +106,6 @@ class IkuaiTracker(CoordinatorEntity[IkuaiCoordinator], TrackerEntity):
         return {
             "mac_address": self._mac,
             "ip_address": client.get("ip_addr"),
-            "interface": client.get("interface"), 
+            "ap_mac": client.get("apmac"),
+            "uplink_addr": client.get("uplink_addr"),
         }

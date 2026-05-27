@@ -39,6 +39,7 @@ class IkuaiMacRuleSwitch(CoordinatorEntity, SwitchEntity):
         rule = coordinator.data["security"]["mac_rules"].get(self._rule_id, {})
         self._attr_name = f"MAC过滤: {rule.get('tagname')} ({rule.get('mac')})"
         self._attr_unique_id = f"{coordinator.host}_mac_rule_{self._rule_id}"
+
         self._attr_device_info = coordinator.security_device_info
 
     @property

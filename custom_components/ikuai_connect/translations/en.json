@@ -1,0 +1,126 @@
+{
+  "config": {
+    "default_name": "iKuai Connect",
+    "step": {
+      "user": {
+        "title": "Connect to iKuai Router",
+        "description": "Please enter the iKuai OpenAPI address and your personal API token (HTTPS required). \n Allows custom names to distinguish different routers.",
+        "data": {
+          "name": "Integration Title (e.g., Main Router)",
+          "host": "Host URL (e.g., https://10.10.10.1)",
+          "token": "Personal API Token"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure iKuai Connection",
+        "description": "Update the host or token for the current integration.",
+        "data": {
+          "host": "Host URL",
+          "token": "Personal API Token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to iKuai. Check URL, Token, and HTTPS settings.",
+      "invalid_auth": "Invalid Token or insufficient permissions.",
+      "name_exists": "This integration name is already in use. Please choose another one.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This iKuai host is already configured.",
+      "reconfigure_successful": "Re-configuration was successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "iKuai Connect Options",
+        "data": {
+          "manage_action": "Management Task",
+          "scan_interval": "Data Update Interval (Seconds)",
+          "act_buffer": "Global Offline Buffer Count"
+        }
+      },
+      "scan": {
+        "title": "Select Devices to Track",
+        "description": "Choose the online clients you want to add as trackers.",
+        "data": {
+          "devices": "Online Clients"
+        }
+      },
+      "configure_devices": {
+        "title": "Configure Tracker Details",
+        "description": "Set names and buffer times for selected devices.",
+        "data": {
+          "name_": "Display Name",
+          "buffer_": "Buffer Count"
+        }
+      },
+      "remove": {
+        "title": "Remove Device Trackers",
+        "data": {
+          "devices_to_remove": "Tracked Devices"
+        }
+      }
+    },
+    "error": {
+      "no_devices_selected": "No devices were selected.",
+      "no_new_devices_found": "No new clients discovered."
+    }
+  },
+  "selector": {
+    "manage_action": {
+      "options": {
+        "none": "None (Save and Exit)",
+        "add": "Add New Trackers",
+        "remove": "Remove Existing Trackers"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "cpu_load": { "name": "CPU Load" },
+      "memory_usage": { "name": "Memory Usage" },
+      "online_users": { "name": "Online Users" },
+      "connection_count": { "name": "Connection Count" },
+      "sys_upload_speed": { "name": "Total Upload Speed" },
+      "sys_download_speed": { "name": "Total Download Speed" },
+      "sys_total_up": { "name": "Total Upload" },
+      "sys_total_down": { "name": "Total Download" },
+      "uptime": { "name": "Uptime" },
+      "temperature": { "name": "Temperature" },
+      "ap_online": { "name": "Wireless AP Online" },
+      "upgrade_status": { "name": "Upgrade Status" },
+      "latest_backup": { "name": "Latest Backup" },
+      "disk_total_capacity": { "name": "Total Capacity" },
+      "disk_usage_rate": { "name": "Usage Rate" },
+      "disk_used_capacity": { "name": "Used Capacity" },
+      "upload_speed": { "name": "{iface} Upload Speed" },
+      "download_speed": { "name": "{iface} Download Speed" },
+      "total_up": { "name": "{iface} Total Upload" },
+      "total_down": { "name": "{iface} Total Download" }
+    },
+    "button": {
+      "reboot": { "name": "Reboot" },
+      "check_update": { "name": "Check Updates" },
+      "start_upgrade": { "name": "Start Upgrade" },
+      "create_backup": { "name": "Create Backup" }
+    },
+    "event": {
+      "message_center": { "name": "System Notifications" },
+      "terminal_presence": { "name": "Terminal Activity" }
+    },
+    "select": {
+      "mac_acl_mode": {
+        "name": "Global MAC Access Mode",
+        "state": {
+          "blacklist": "Blacklist Mode",
+          "whitelist": "Whitelist Mode"
+        }
+      }
+    },
+    "device_tracker": {
+      "ikuai_tracker": { "name": "Tracker" }
+    }
+  }
+}

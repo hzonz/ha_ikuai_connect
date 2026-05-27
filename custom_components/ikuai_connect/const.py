@@ -113,7 +113,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         suggested_display_precision=2,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.get("system", {}).get("upload"),
-        attr_fn=lambda d: {"ipv6_speed": d.get("system", {}).get("v6_stats", {}).get("upload_speed_v6")},
+        attr_fn=lambda d: {"ipv6_upload_speed": d.get("system", {}).get("v6_stats", {}).get("upload_speed_v6")},
     ),
     IkuaiSensorEntityDescription(
         key="sys_download",
@@ -126,7 +126,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         suggested_display_precision=2,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: d.get("system", {}).get("download"),
-        attr_fn=lambda d: {"ipv6_speed": d.get("system", {}).get("v6_stats", {}).get("download_speed_v6")},
+        attr_fn=lambda d: {"ipv6_download_speed": d.get("system", {}).get("v6_stats", {}).get("download_speed_v6")},
     ),
     IkuaiSensorEntityDescription(
         key="sys_total_up",
@@ -139,7 +139,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         suggested_display_precision=2,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: d.get("system", {}).get("total_up"),
-        attr_fn=lambda d: {"ipv6_total": d.get("system", {}).get("v6_stats", {}).get("total_upload_v6")},
+        attr_fn=lambda d: {"ipv6_total_upload": d.get("system", {}).get("v6_stats", {}).get("total_upload_v6")},
     ),
     IkuaiSensorEntityDescription(
         key="sys_total_down",
@@ -152,7 +152,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         suggested_display_precision=2,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: d.get("system", {}).get("total_down"),
-        attr_fn=lambda d: {"ipv6_total": d.get("system", {}).get("v6_stats", {}).get("total_download_v6")},
+        attr_fn=lambda d: {"ipv6_total_download": d.get("system", {}).get("v6_stats", {}).get("total_download_v6")},
     ),
     IkuaiSensorEntityDescription(
         key="uptime",
@@ -241,7 +241,7 @@ BUTTON_TYPES: Final[tuple[IkuaiButtonEntityDescription, ...]] = (
 # 模式选择器描述符
 MAC_MODE_SELECT: Final = SelectEntityDescription(
     key="mac_acl_mode",
-    name="Global MAC Access Mode",
+    name="MAC Access Mode",
     translation_key="mac_acl_mode",
     icon="mdi:shield-check",
     options=["blacklist", "whitelist"],
