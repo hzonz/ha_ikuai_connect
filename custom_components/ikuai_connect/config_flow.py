@@ -9,6 +9,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL, CONF_NAME
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import translation  # 引入翻译模块
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import (
     NumberSelector,
@@ -16,6 +17,7 @@ from homeassistant.helpers.selector import (
     NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -27,33 +29,53 @@ from .helpers import extract_name_from_label
 
 _LOGGER = logging.getLogger(__name__)
 
-def get_login_schema(defaults: dict[str, Any] | None = None, is_reconfigure: bool = False) -> vol.Schema:
-    """生成登录表单 Schema."""
-    if defaults is None:
-        defaults = {}
-    
-    schema = {}
-    
-    # 只有在初次安装时才显示“名称”输入框
-    if not is_reconfigure:
-        schema[vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "主路由"))] = TextSelector(
-            TextSelectorConfig(type=TextSelectorType.TEXT)
-        )
-        
-    schema.update({
-        vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "https://10.10.10.1")): TextSelector(
-            TextSelectorConfig(type=TextSelectorType.URL)
-        ),
-        vol.Required(CONF_TOKEN, default=defaults.get(CONF_TOKEN)): TextSelector(
-            TextSelectorConfig(type=TextSelectorType.PASSWORD)
-        ),
-    })
-    return vol.Schema(schema)
 
 class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """处理初次配置和重新配置."""
     VERSION = 1
 
+    async def _get_localized_default_name(self) -> str:
+        """从翻译文件中动态获取默认设备名称."""
+        lang = self.hass.config.language
+        translations = await translation.async_get_translations(
+            self.hass, lang, "config", [DOMAIN]
+        )
+        return translations.get(
+            f"component.{DOMAIN}.config.default_name", 
+            "iKuai Connect" # 如果找不到翻译时的英文保底名称
+        )
+
+    async def _get_login_schema(self, defaults: dict[str, Any] | None = None, is_reconfigure: bool = False) -> vol.Schema:
+        """异步生成带动态翻译默认值的登录 Schema."""
+        if defaults is None: 
+            defaults = {}
+        
+        schema = {}
+        
+        # 只有在初次安装时才显示“名称”输入框
+        if not is_reconfigure:
+            # 动态获取默认名称
+            default_name = defaults.get(CONF_NAME)
+            if not default_name:
+                default_name = await self._get_localized_default_name()
+                
+            schema[vol.Required(CONF_NAME, default=default_name)] = TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            )
+            
+        schema.update({
+            vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "https://10.10.10.1")): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.URL)
+            ),
+            vol.Required(CONF_TOKEN, default=defaults.get(CONF_TOKEN)): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
+        })
+        return vol.Schema(schema)
+
+
     async def async_step_user(self, user_input=None) -> FlowResult:
+        """初次安装步骤."""
         errors = {}
         if user_input is not None:
             host = user_input[CONF_HOST].rstrip("/")
@@ -87,11 +109,9 @@ class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception:
                     errors["base"] = "cannot_connect"
         
-        return self.async_show_form(
-            step_id="user", 
-            data_schema=get_login_schema(user_input), # 传入 user_input 以保留用户已填内容
-            errors=errors
-        )
+        # 异步调用动态 Schema
+        schema = await self._get_login_schema(user_input)
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """处理重新配置流程."""
@@ -118,28 +138,32 @@ class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except Exception:
                 errors["base"] = "cannot_connect"
 
-        return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=get_login_schema(
-                defaults={
-                    CONF_HOST: reconfig_entry.data[CONF_HOST],
-                    CONF_TOKEN: reconfig_entry.data[CONF_TOKEN]
-                },
-                is_reconfigure=True # 告诉 Schema 隐藏名称字段
-            ),
-            errors=errors
+        # 异步调用动态 Schema，并标记为 reconfigure 以隐藏名称字段
+        schema = await self._get_login_schema(
+            defaults={
+                CONF_HOST: reconfig_entry.data[CONF_HOST],
+                CONF_TOKEN: reconfig_entry.data[CONF_TOKEN]
+            },
+            is_reconfigure=True
         )
+        return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         return IkuaiOptionsFlowHandler()
 
+
 class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
     """优雅的选项管理界面."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """配置主界面：基础设置 + 任务跳转."""
+        
+        # 动态初始化实例变量，防止在返回修改时报错
+        self._selected_devices = getattr(self, "_selected_devices", [])
+        self._discovered_map = getattr(self, "_discovered_map", {})
+        
         if user_input is not None:
             # 获取用户选择的后续动作
             next_action = user_input.pop("manage_action", "none")
@@ -176,12 +200,9 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
                 # 任务操作区：使用单选或下拉
                 vol.Required("manage_action", default="none"): SelectSelector(
                     SelectSelectorConfig(
-                        options=[
-                            {"value": "none", "label": "无 (直接保存并退出)"},
-                            {"value": "add", "label": "➕ 添加新的追踪终端"},
-                            {"value": "remove", "label": "➖ 移除现有的追踪"}
-                        ],
-                        mode="list", # 使用 list 模式在 UI 上显示为漂亮的单选卡片
+                        options=["none", "add", "remove"],
+                        translation_key="manage_action",
+                        mode=SelectSelectorMode.LIST,
                     )
                 ),
             })
@@ -212,11 +233,12 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
                 
                 ip = item.get("ip_addr", "")
                 comment = extract_name_from_label(item.get("comment", "")) or item.get("termname", "")
-                self._discovered_map[mac] = f"{mac} | {ip} ({comment})"
+                self._discovered_map[mac] = f"{mac} | {ip} ({comment})" if comment else f"{mac} | {ip}"
 
             if not self._discovered_map:
                 errors["base"] = "no_new_devices_found"
         except Exception as err:
+            _LOGGER.error("Scan error: %s", err)
             errors["base"] = "cannot_connect"
 
         return self.async_show_form(

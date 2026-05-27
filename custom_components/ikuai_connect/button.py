@@ -49,6 +49,7 @@ class IkuaiButton(CoordinatorEntity[IkuaiCoordinator], ButtonEntity):
         # 构造唯一 ID
         host_id = coordinator.host.split("//")[-1].replace(".", "_").replace(":", "_")
         self._attr_unique_id = f"{DOMAIN}_btn_{description.key}_{host_id}"
+        self._attr_translation_key = description.translation_key
         
         # 【核心逻辑】：根据按钮类型决定挂载到哪个设备
         if description.action_type == "reboot_main":

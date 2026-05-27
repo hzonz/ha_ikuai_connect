@@ -69,7 +69,7 @@ jobs:
 
       - name: Create GitHub Release Draft
         if: steps.check.outputs.compare_result == 'success'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.check.outputs.version }}
           # 按照你的习惯：v1.0.0 - 标题内容

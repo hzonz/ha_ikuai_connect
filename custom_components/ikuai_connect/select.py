@@ -16,6 +16,7 @@ class IkuaiMacModeSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.host}_mac_mode"
+        self._attr_translation_key = description.translation_key
         self._attr_device_info = coordinator.security_device_info
 
     @property

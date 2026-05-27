@@ -1,5 +1,6 @@
 {
   "config": {
+    "default_name": "主路由",
     "step": {
       "user": {
         "title": "连接到 iKuai 路由器",
@@ -35,7 +36,7 @@
       "init": {
         "title": "iKuai Connect 选项",
         "data": {
-          "action": "要执行的操作",
+          "manage_action": "终端追踪管理",
           "scan_interval": "数据更新间隔 (秒)",
           "act_buffer": "全局离线判定缓冲次数"
         }
@@ -68,39 +69,80 @@
     }
   },
   "selector": {
-    "mac_acl_mode": {
+    "manage_action": {
       "options": {
-        "blacklist": "黑名单模式 (阻断模式)",
-        "whitelist": "白名单模式 (放行模式)"
-      }
-    },
-    "action_steps": {
-      "options": {
-        "save": "仅保存基础设置",
-        "add_tracker": "扫描并添加新终端",
-        "remove_tracker": "移除现有终端"
+        "none": "无 (仅保存基础设置并退出)",
+        "add": "➕ 添加新的追踪终端",
+        "remove": "➖ 移除现有的追踪"
       }
     }
-  },
+  },   
   "entity": {
     "sensor": {
       "cpu_load": { "name": "CPU 使用率" },
       "memory_usage": { "name": "内存使用率" },
-      "online_users": { "name": "在线设备总数" },
+      "online_users": { 
+        "name": "在线设备总数",
+        "state_attributes": {
+          "count_2g": { "name": "2.4G 在线设备数量" },
+          "count_5g": { "name": "5G 在线设备数量" },
+          "count_wired": { "name": "有线在线设备数量" },
+          "count_wireless": { "name": "无线在线设备数量" }
+        }
+      },
       "connection_count": { "name": "当前连接总数" },
-      "sys_upload_speed": { "name": "总上传速度" },
-      "sys_download_speed": { "name": "总下载速度" },
-      "sys_total_up": { "name": "总上传流量" },
-      "sys_total_down": { "name": "总下载流量" },
-      "uptime": { "name": "运行时间" },
+      "sys_upload_speed": { "name": "总上传速度", "state_attributes": { "ipv6_upload_speed": { "name": "IPV6上传速度" } } },
+      "sys_download_speed": { "name": "总下载速度", "state_attributes": { "ipv6_download_speed": { "name": "IPV6下载速度" } } },
+      "sys_total_up": { "name": "总上传流量", "state_attributes": { "ipv6_total_upload": { "name": "IPV6总流量" } } },
+      "sys_total_down": { "name": "总下载流量", "state_attributes": { "ipv6_total_download": { "name": "IPV6总流量" } } },
+      "uptime": { 
+        "name": "运行时间",
+        "state_attributes": {
+          "wan_ipv4": { "name": "WAN IPv4 地址" },
+          "firmware_version": { "name": "固件版本" }
+        }
+      },
       "temperature": { "name": "系统温度" },
-      "ap_online": { "name": "在线 AP 数量" },
-      "upgrade_status": { "name": "固件更新状态" },
+      "ap_online": { 
+        "name": "在线 AP 数量", 
+        "state_attributes": {
+          "total_ap": { "name": "AP总数" },
+          "offline_ap": { "name": "离线AP数量" },
+          "roaming_supported": { "name": "支持漫游的AP数量" },
+          "prefer_5g_aps": { "name": "优先连接5G的AP数量" },
+          "clients_2g": { "name": "连接2.4G的设备数量" },
+          "clients_5g": { "name": "连接5G的设备数量" },
+          "active_clients": { "name": "活跃设备数量" },
+          "signal_coverage": { "name": "信号覆盖率" },
+          "network_delay": { "name": "网络延迟" },
+          "packer_loss": { "name": "丢包率" },
+          "airtime_health_Score": { "name": "空中健康分数" }
+        }
+      },
+      "upgrade_status": { 
+        "name": "固件更新状态",
+        "state_attributes": {
+          "curr": { "name": "当前状态" },
+          "new": { "name": "新版本" },
+          "log": { "name": "更新日志" }
+        }
+      },  
       "latest_backup": { "name": "最后备份文件" },
-      "disk_total_capacity": { "name": "物理总容量" },
+      "disk_total_capacity": { 
+        "name": "物理总容量",
+        "state_attributes": {
+          "model": { "name": "磁盘型号" },
+          "disk": { "name": "磁盘名称" },
+          "system": { "name": "是否系统盘" }
+        }
+      },  
       "disk_usage_rate": { "name": "综合使用率" },
-      "disk_used_capacity": { "name": "已用总容量" },
-
+      "disk_used_capacity": { 
+        "name": "已用总容量",
+        "state_attributes": {
+          "partitions": { "name": "分区使用详情" }
+        }
+      },    
       "upload_speed": { "name": "{iface} 实时上传速度" },
       "download_speed": { "name": "{iface} 实时下载速度" },
       "total_up": { "name": "{iface} 累计上传流量" },
@@ -117,10 +159,24 @@
       "terminal_presence": { "name": "终端上下线记录" }
     },
     "select": {
-      "mac_acl_mode": { "name": "全局访问控制模式" }
+      "mac_acl_mode": { 
+        "name": "全局访问控制模式",
+        "state": {
+          "whitelist": "白名单模式 (放行模式)",
+          "blacklist": "黑名单模式 (阻断模式)"
+        }
+       }
     },
     "device_tracker": {
-      "ikuai_tracker": { "name": "终端追踪" }
+      "ikuai_tracker": { 
+        "name": "终端追踪",
+        "state_attributes": {
+          "mac_address": { "name": "MAC 地址" },
+          "ip_address": { "name": "IP 地址" },
+          "ap_mac": { "name": "连接的 AP MAC 地址" },
+          "uplink_addr": { "name": "上行地址" }
+        }
+      }  
     }
   }
 }
