@@ -1,34 +1,34 @@
 {
   "config": {
-    "default_name": "iKuai Connect",
+    "default_name": "Main Router",
     "step": {
       "user": {
         "title": "Connect to iKuai Router",
-        "description": "Please enter the iKuai OpenAPI address and your personal API token (HTTPS required). \n Allows custom names to distinguish different routers.",
+        "description": "Please enter the iKuai OpenAPI address and your personal API Token. **HTTPS is required**.\nYou may set a custom name for each iKuai connection,\nwhich helps distinguish multiple routers (e.g., Main Router, Second Floor Router).\nNote: Only **iKuai 4.0.221** and above are supported.",
         "data": {
-          "name": "Integration Title (e.g., Main Router)",
-          "host": "Host URL (e.g., https://10.10.10.1)",
+          "name": "Connection Name (e.g., Main Router)",
+          "host": "Host Address (e.g., https://10.10.10.1)",
           "token": "Personal API Token"
         }
       },
       "reconfigure": {
         "title": "Reconfigure iKuai Connection",
-        "description": "Update the host or token for the current integration.",
+        "description": "Update the connection address or token for the current integration.",
         "data": {
-          "host": "Host URL",
+          "host": "Host Address",
           "token": "Personal API Token"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to iKuai. Check URL, Token, and HTTPS settings.",
-      "invalid_auth": "Invalid Token or insufficient permissions.",
-      "name_exists": "This integration name is already in use. Please choose another one.",
-      "unknown": "Unexpected error occurred."
+      "cannot_connect": "Unable to connect to iKuai. Please check the address, token, and whether HTTPS is enabled.",
+      "invalid_auth": "Invalid token. Please ensure the token has sufficient API permissions in the iKuai backend.",
+      "name_exists": "This integration name is already in use. Please choose another name (e.g., Second Floor Router).",
+      "unknown": "An unknown error occurred."
     },
     "abort": {
-      "already_configured": "This iKuai host is already configured.",
-      "reconfigure_successful": "Re-configuration was successful."
+      "already_configured": "This iKuai router has already been configured.",
+      "reconfigure_successful": "Reconfiguration successful."
     }
   },
   "options": {
@@ -36,44 +36,44 @@
       "init": {
         "title": "iKuai Connect Options",
         "data": {
-          "manage_action": "Management Task",
-          "scan_interval": "Data Update Interval (Seconds)",
-          "act_buffer": "Global Offline Buffer Count"
+          "manage_action": "Terminal Tracking Management",
+          "scan_interval": "Data Update Interval (seconds)",
+          "offline_grace_period": "Global Offline Grace Period (seconds)"
         }
       },
       "scan": {
-        "title": "Select Devices to Track",
-        "description": "Choose the online clients you want to add as trackers.",
+        "title": "Select Terminals to Track",
+        "description": "Please check the online terminals you want to track in Home Assistant.",
         "data": {
-          "devices": "Online Clients"
+          "devices": "Online Terminal List"
         }
       },
       "configure_devices": {
-        "title": "Configure Tracker Details",
-        "description": "Set names and buffer times for selected devices.",
+        "title": "Configure Terminal Tracking Options",
+        "description": "Configuring **{device}**,\nplease set the display name and offline grace period for this terminal.\nRemaining devices to configure: {remaining}.\nNote: For mobile phones, an offline delay of around 600 seconds is recommended.",
         "data": {
-          "name_": "Display Name",
-          "buffer_": "Buffer Count"
+          "name": "Display Name",
+          "offline_grace_period": "Offline Grace Period (30–3600 seconds)"
         }
       },
       "remove": {
-        "title": "Remove Device Trackers",
+        "title": "Remove Tracked Terminals",
         "data": {
-          "devices_to_remove": "Tracked Devices"
+          "devices_to_remove": "Tracked Device List"
         }
       }
     },
     "error": {
-      "no_devices_selected": "No devices were selected.",
-      "no_new_devices_found": "No new clients discovered."
+      "no_devices_selected": "You did not select any devices.",
+      "no_new_devices_found": "No new online terminals were found."
     }
   },
   "selector": {
     "manage_action": {
       "options": {
-        "none": "None (Save and Exit)",
-        "add": "Add New Trackers",
-        "remove": "Remove Existing Trackers"
+        "none": "None (Save basic settings and exit)",
+        "add": "➕ Add New Tracking Terminals",
+        "remove": "➖ Remove Existing Tracking"
       }
     }
   },

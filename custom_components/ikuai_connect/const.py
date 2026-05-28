@@ -1,4 +1,4 @@
-"""Constants for iKuai Connect."""
+"""ikuai connect."""
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, Callable, Any
@@ -32,7 +32,10 @@ PLATFORMS: Final = [
 ]
 
 CONF_TRACKER_CONFIG: Final = "tracker_config"
-CONF_ACT_BUFFER: Final = "act_buffer"
+CONF_OFFLINE_GRACE_PERIOD: Final = "offline_grace_period" # 离线缓冲分钟
+
+DEFAULT_SCAN_INTERVAL = 15 # 默认扫描间隔（秒）
+DEFAULT_OFFLINE_GRACE_PERIOD = 30 # 默认 30秒
 
 # MAC 访问控制模式映射
 MAC_ACL_MODES = {
@@ -245,6 +248,7 @@ MAC_MODE_SELECT: Final = SelectEntityDescription(
     translation_key="mac_acl_mode",
     icon="mdi:shield-check",
     options=["blacklist", "whitelist"],
+    entity_category=EntityCategory.CONFIG, 
 )
 
 # 接口监控设备传感器模板

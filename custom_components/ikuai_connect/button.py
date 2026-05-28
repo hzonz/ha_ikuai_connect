@@ -1,4 +1,4 @@
-"""Support for iKuai Connect buttons."""
+"""iKuai Button."""
 from __future__ import annotations
 
 import asyncio

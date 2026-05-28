@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "连接到 iKuai 路由器",
-        "description": "请输入 iKuai OpenAPI 地址和个人 API 令牌（Token）。必须使用 HTTPS。\n 允许用户为每个 iKuai 连接设置一个自定义名称，方便区分不同路由器的连接（如：主路由、二楼路由）。",
+        "description": "请输入 iKuai OpenAPI 地址和个人 API 令牌（Token）。必须使用 **HTTPS** 。\n 允许用户为每个 iKuai 连接设置一个自定义名称， \n 方便区分不同路由器的连接（如：主路由、二楼路由）。 \n 注：仅支持 **ikuai 4.0.221** 及以上版本。",
         "data": {
           "name": "连接名称 (如：主路由)",
           "host": "主机地址 (例如 https://10.10.10.1)",
@@ -38,7 +38,7 @@
         "data": {
           "manage_action": "终端追踪管理",
           "scan_interval": "数据更新间隔 (秒)",
-          "act_buffer": "全局离线判定缓冲次数"
+          "offline_grace_period": "全局离线判定缓冲时间 (秒)"
         }
       },
       "scan": {
@@ -49,11 +49,11 @@
         }
       },
       "configure_devices": {
-        "title": "配置追踪详情",
-        "description": "请为选中的终端设置显示名称和离线缓冲次数。",
+        "title": "配置终端追踪选项",
+        "description": "正在配置 **{device}** , \n 请为选中的终端设置显示名称和离线缓冲时间, \n 剩余待配置设备: {remaining} 个, \n 注：手机判定时间建议设置600秒。",
         "data": {
-          "name_": "显示名称",
-          "buffer_": "特定缓冲次数"
+          "name": "显示名称",
+          "offline_grace_period": "离线判定延迟时间 (30-3600秒)"
         }
       },
       "remove": {
@@ -80,7 +80,16 @@
   "entity": {
     "sensor": {
       "cpu_load": { "name": "CPU 使用率" },
-      "memory_usage": { "name": "内存使用率" },
+      "memory_usage": { 
+        "name": "内存使用率",
+        "state_attributes": {
+          "total": { "name": "内存总量" },
+          "available": { "name": "可用内存" },
+          "free": { "name": "剩余内存" },
+          "cached": { "name": "缓存内存" },
+          "buffers": { "name": "缓冲内存" }
+        }
+      },  
       "online_users": { 
         "name": "在线设备总数",
         "state_attributes": {
@@ -115,25 +124,37 @@
           "active_clients": { "name": "活跃设备数量" },
           "signal_coverage": { "name": "信号覆盖率" },
           "network_delay": { "name": "网络延迟" },
-          "packer_loss": { "name": "丢包率" },
-          "airtime_health_Score": { "name": "空中健康分数" }
+          "packet_loss": { "name": "丢包率" },
+          "airtime_health_score": { "name": "空中健康分数" }
         }
       },
       "upgrade_status": { 
         "name": "固件更新状态",
         "state_attributes": {
-          "curr": { "name": "当前状态" },
-          "new": { "name": "新版本" },
-          "log": { "name": "更新日志" }
+          "current_version": { "name": "当前版本" },
+          "latest_version": { "name": "最新版本" },
+          "version_type": { "name": "版本类型" },
+          "build_date": { "name": "编译日期" },
+          "update_content": { "name": "更新内容" },
+          "last_check": { "name": "上次检查时间" }
         }
       },  
-      "latest_backup": { "name": "最后备份文件" },
+      "latest_backup": { 
+        "name": "最后备份文件", 
+        "state_attributes": {
+          "backtype": { "name": "备份类型" },
+          "filesize": { "name": "文件大小" },
+          "version": { "name": "版本号" }
+        }
+      },
       "disk_total_capacity": { 
         "name": "物理总容量",
         "state_attributes": {
           "model": { "name": "磁盘型号" },
           "disk": { "name": "磁盘名称" },
-          "system": { "name": "是否系统盘" }
+          "system": { "name": "是否系统盘" },
+          "type": { "name": "磁盘类型" },
+          "block_size": { "name": "磁盘块大小" }
         }
       },  
       "disk_usage_rate": { "name": "综合使用率" },
@@ -156,7 +177,22 @@
     },
     "event": {
       "message_center": { "name": "系统消息通知" },
-      "terminal_presence": { "name": "终端上下线记录" }
+      "terminal_presence": { 
+        "name": "终端上下线记录",
+        "state_attributes": {
+          "mac": { "name": "MAC 地址" },
+          "ip": { "name": "IP 地址" },
+          "action": { "name": "动作类型" },
+          "online_seconds": { "name": "在线时长 (秒)" },
+          "upload_mb": { "name": "本次上传 (MB)" },
+          "download_mb": { "name": "本次下载 (MB)" },
+          "os": { "name": "操作系统" },
+          "vendor": { "name": "生产商" },
+          "model": { "name": "设备型号" },
+          "interface": { "name": "接入接口" },
+          "timestamp": { "name": "记录时间" }     
+        }
+      }
     },
     "select": {
       "mac_acl_mode": { 
@@ -165,7 +201,7 @@
           "whitelist": "白名单模式 (放行模式)",
           "blacklist": "黑名单模式 (阻断模式)"
         }
-       }
+      }
     },
     "device_tracker": {
       "ikuai_tracker": { 
@@ -177,6 +213,31 @@
           "uplink_addr": { "name": "上行地址" }
         }
       }  
+    },
+    "switch": {
+      "mac_rule": {
+        "name": "MAC 访问控制",
+        "state_attributes": {
+          "mac_address": { "name": "MAC 地址" },
+          "terminal_name": { "name": "终端名称" },
+          "comment": { "name": "备注信息" },
+          "schedule": { 
+            "name": "生效时间",
+            "state": {
+              "every_week": "每周{weekdays}",
+              "specific_date": "特定日期",
+              "all_day": "全天"
+            }
+          },
+          "expires": { 
+            "name": "过期时间",
+            "state": {
+              "permanent": "永久"
+            }
+          },
+          "rule_id": { "name": "规则 ID" }
+        }
+      }
     }
   }
 }
