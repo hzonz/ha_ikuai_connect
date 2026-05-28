@@ -1,13 +1,14 @@
-"""Config flow for iKuai Connect."""
+"""ikuai 配置流实现."""
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL, CONF_NAME
 from homeassistant.core import callback
+from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL, CONF_NAME
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import translation  # 引入翻译模块
 from homeassistant.helpers import config_validation as cv
@@ -24,7 +25,14 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import IkuaiAPI
-from .const import DOMAIN, CONF_TRACKER_CONFIG, CONF_ACT_BUFFER
+from .const import (
+    DOMAIN,
+    CONF_TRACKER_CONFIG,
+    CONF_OFFLINE_GRACE_PERIOD,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_OFFLINE_GRACE_PERIOD,
+)
+
 from .helpers import extract_name_from_label
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,8 +133,6 @@ class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             try:
                 api = IkuaiAPI(self.hass, host, token)
                 await api.get_system_info()
-                
-                # 2026 标准：只更新数据字典，不改变 entry.title
                 return self.async_update_reload_and_abort(
                     reconfig_entry, 
                     data={
@@ -153,9 +159,13 @@ class IkuaiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         return IkuaiOptionsFlowHandler()
 
-
 class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
     """优雅的选项管理界面."""
+
+    def __init__(self) -> None:
+        self._selected_devices: list[str] = []
+        self._discovered_map: dict[str, str] = {}
+        self._temp_options: dict[str, Any] = {} # 声明一个持久存储
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """配置主界面：基础设置 + 任务跳转."""
@@ -164,28 +174,25 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
         self._selected_devices = getattr(self, "_selected_devices", [])
         self._discovered_map = getattr(self, "_discovered_map", {})
         
+        if not self._temp_options:
+            self._temp_options = dict(self.config_entry.options)
         if user_input is not None:
-            # 获取用户选择的后续动作
-            next_action = user_input.pop("manage_action", "none")
-            
-            # 1. 立即合并并保存基础设置 (频率、缓冲)
-            new_options = dict(self.config_entry.options)
-            new_options.update(user_input)
-            
-            # 这里先不执行 create_entry，因为如果是跳转流程，我们需要带上最新的 options 状态
-            self._temp_options = new_options
-
+            next_action = user_input.get("manage_action", "none")
+            self._temp_options.update({
+                CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL],
+                CONF_OFFLINE_GRACE_PERIOD: user_input[CONF_OFFLINE_GRACE_PERIOD]
+            })
+            # 根据跳转指令进入不同页面
             if next_action == "add":
                 return await self.async_step_scan()
             if next_action == "remove":
                 return await self.async_step_remove()
-            
-            # 如果没有选择额外动作，直接保存基础设置并退出
-            return self.async_create_entry(title="", data=new_options)
+            # 如果没有选择额外动作 (none)，直接保存当前合并后的 _temp_options 并退出
+            return self.async_create_entry(title="", data=self._temp_options)
 
         # 获取当前值用于默认显示
-        current_interval = self.config_entry.options.get(CONF_SCAN_INTERVAL, 15)
-        current_buffer = self.config_entry.options.get(CONF_ACT_BUFFER, 2)
+        current_interval = self.config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        current_period = self.config_entry.options.get(CONF_OFFLINE_GRACE_PERIOD, DEFAULT_OFFLINE_GRACE_PERIOD)
 
         return self.async_show_form(
             step_id="init",
@@ -194,8 +201,8 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Required(CONF_SCAN_INTERVAL, default=current_interval): NumberSelector(
                     NumberSelectorConfig(min=5, max=300, mode=NumberSelectorMode.BOX)
                 ),
-                vol.Required(CONF_ACT_BUFFER, default=current_buffer): NumberSelector(
-                    NumberSelectorConfig(min=0, max=20, mode=NumberSelectorMode.BOX)
+                vol.Required(CONF_OFFLINE_GRACE_PERIOD, default=current_period): NumberSelector(
+                    NumberSelectorConfig(min=30, max=1800, mode=NumberSelectorMode.BOX)
                 ),
                 # 任务操作区：使用单选或下拉
                 vol.Required("manage_action", default="none"): SelectSelector(
@@ -223,8 +230,7 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
         try:
             res = await coordinator.api.get_lan_devices()
             lan_list = res.get("data", [])
-            # 兼容：从最新的临时配置或已有配置中读取
-            existing_trackers = self._temp_options.get(CONF_TRACKER_CONFIG, {})
+            existing_trackers = self.config_entry.options.get(CONF_TRACKER_CONFIG, {})
             
             self._discovered_map = {}
             for item in lan_list:
@@ -232,8 +238,13 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
                 if not mac or mac in existing_trackers: continue
                 
                 ip = item.get("ip_addr", "")
-                comment = extract_name_from_label(item.get("comment", "")) or item.get("termname", "")
-                self._discovered_map[mac] = f"{mac} | {ip} ({comment})" if comment else f"{mac} | {ip}"
+                termname = item.get("termname", "")
+                model = item.get("client_model", "")
+                comment = extract_name_from_label(item.get("comment", ""))
+                name_priority = termname or model or comment
+                # 构造标准格式，供下一步正则提取
+                label = f"{mac} | {ip} ({name_priority})" if name_priority else f"{mac} | {ip}"
+                self._discovered_map[mac] = label
 
             if not self._discovered_map:
                 errors["base"] = "no_new_devices_found"
@@ -250,29 +261,54 @@ class IkuaiOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
     async def async_step_configure_devices(self, user_input=None) -> FlowResult:
-        """保存并退出."""
-        if user_input is not None:
-            tracker_config = dict(self._temp_options.get(CONF_TRACKER_CONFIG, {}))
-
-            for mac in self._selected_devices:
-                safe_key = mac.replace(":", "_")
-                tracker_config[mac.lower()] = {
-                    "name": user_input.get(f"name_{safe_key}"),
-                    "buffer": user_input.get(f"buffer_{safe_key}", 2)
-                }
-            
-            self._temp_options[CONF_TRACKER_CONFIG] = tracker_config
+        """迭代配置每一个选中的设备，保持 Key 的纯净."""
+        # 检查是否还有待处理的设备
+        if not self._selected_devices:
+            # 全部配完，保存最终的 _temp_options
             return self.async_create_entry(title="", data=self._temp_options)
 
-        fields = {}
-        for mac in self._selected_devices:
-            safe_key = mac.replace(":", "_")
-            label = self._discovered_map.get(mac, mac)
-            default_name = label.split("(")[-1].replace(")", "") if "(" in label else f"Client {mac[-5:]}"
-            fields[vol.Required(f"name_{safe_key}", default=default_name)] = str
-            fields[vol.Optional(f"buffer_{safe_key}", default=2)] = int
+        current_mac = self._selected_devices[0]
 
-        return self.async_show_form(step_id="configure_devices", data_schema=vol.Schema(fields))
+        # 处理当前页面的提交
+        if user_input is not None:
+            # 确保初始化并追加，而不是覆盖
+            tracker_config = dict(self._temp_options.get(CONF_TRACKER_CONFIG, {}))
+            tracker_config[current_mac.lower()] = {
+                "name": user_input[CONF_NAME],
+                "buffer": user_input[CONF_OFFLINE_GRACE_PERIOD]
+            }
+            self._temp_options[CONF_TRACKER_CONFIG] = tracker_config            
+            # 处理完一个，移除一个
+            self._selected_devices.pop(0)
+            
+            # 显式传入 user_input=None，强制下一轮显示表单
+            return await self.async_step_configure_devices(user_input=None)
+
+        # 准备表单显示逻辑
+        label_info = self._discovered_map.get(current_mac, "")
+        
+        # 提取终端名称
+        name_match = re.search(r'\((.*?)\)', label_info)
+        
+        if name_match and name_match.group(1).strip():
+            default_name = name_match.group(1).strip()
+        else:
+            # 2. 保底逻辑：如果所有字段都为空，使用 MAC 末尾
+            default_name = f"Client {current_mac.replace(':', '')[-4:]}"
+
+        return self.async_show_form(
+            step_id="configure_devices",
+            data_schema=vol.Schema({
+                vol.Required(CONF_NAME, default=default_name): str,
+                vol.Required(CONF_OFFLINE_GRACE_PERIOD, default=DEFAULT_OFFLINE_GRACE_PERIOD): NumberSelector(
+                    NumberSelectorConfig(min=30, max=3600, unit_of_measurement="s", mode=NumberSelectorMode.BOX)
+                ),
+            }),
+            description_placeholders={
+                "device": f"{default_name} ({current_mac})",
+                "remaining": str(len(self._selected_devices))
+            }
+        )
 
     async def async_step_remove(self, user_input=None) -> FlowResult:
         """移除追踪."""

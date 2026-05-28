@@ -1,15 +1,17 @@
-"""The iKuai Connect integration."""
+"""ikuai connect 集成入口."""
 from __future__ import annotations
 
+from datetime import timedelta
 import logging
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_TOKEN, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv
+import homeassistant.util.dt as dt_util
 
 from .api import IkuaiAPI
-from .const import DOMAIN, PLATFORMS
+from .const import DOMAIN, PLATFORMS, DEFAULT_SCAN_INTERVAL
 from .coordinator import IkuaiCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: IkuaiConfigEntry) -> boo
         hass, 
         api, 
         entry.data[CONF_HOST], 
-        entry.options.get(CONF_SCAN_INTERVAL, 15)
+        entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
     )
     coordinator.config_entry = entry
 
@@ -44,7 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: IkuaiConfigEntry) -> boo
             "total_flow_mb": round(res.get("terminal_total_flow", 0) / 1024 / 1024, 2),
             "devices": [
                 {
-                    "name": d.get("comment") or d.get("username") or d.get("mac"),
+                    "name": d.get("comment") or d.get("termname") or d.get("mac"),
                     "ip": d.get("ip_addr"),
                     "mac": d.get("mac"),
                     "total_mb": round(d.get("sum_total", 0) / 1024 / 1024, 2),
@@ -89,27 +91,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: IkuaiConfigEntry) -> boo
 
     # --- 注册服务：查询离线历史 ---
     async def async_get_offline_history(call) -> ServiceResponse:
-        from homeassistant.util import dt as dt_util # 导入时间工具
-        api = coordinator.api
-        res = await api.get_offline_history()
+
+        res = await coordinator.api.get_offline_history()
         
+        raw_history = res.get("offline_data", [])
         history_list = []
-        for d in res.get("offline_data", []):
-            # 计算总计字节并转为 MB
-            total_bytes = d.get("total_up", 0) + d.get("total_down", 0)
-            total_mb = round(total_bytes / (1024 * 1024), 2)
+        
+        for d in raw_history:
+            # 提取名称 (应用优先级逻辑)
+            name = (
+                d.get("termname") 
+                or d.get("client_model") 
+                or d.get("comment") 
+                or f"Client {d.get('mac', '')[-5:]}"
+            )
             
-            # 将 Unix 时间戳转换为本地时间字符串
+            # 计算流量 (MB)
+            total_bytes = int(d.get("total_up", 0)) + int(d.get("total_down", 0))
+            total_mb = round(total_bytes / 1048576, 2)
+            
+            # 转换下线时间
             logout_ts = d.get("logout_time", 0)
-            offline_time_str = dt_util.as_local(
+            offline_time = dt_util.as_local(
                 dt_util.utc_from_timestamp(logout_ts)
             ).strftime("%Y-%m-%d %H:%M:%S") if logout_ts else "Unknown"
 
             history_list.append({
+                "name": name,
                 "mac": d.get("mac"),
-                "last_ip": d.get("ip_addr"),
-                "offline_time": offline_time_str,
-                "total_used_mb": total_mb
+                "ip": d.get("ip_addr"),
+                "offline_at": offline_time,
+                "total_usage_mb": total_mb,
+                "client_type": d.get("client_type"),
+                "vendor": d.get("client_vendor")
             })
             
         return {"history": history_list}
@@ -131,23 +145,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: IkuaiConfigEntry) -> boo
 
     # ---注册服务：添加 MAC 访问控制规则 ---
     async def async_add_mac_rule(call) -> None:
-        """添加一条新的 MAC 规则."""
         mac = call.data["mac"].lower().replace("-", ":")
-        tagname = call.data.get("tagname", f"HA_Auto_{mac[-5:]}")
-        comment = call.data.get("comment", "Added by Home Assistant Automation")
-        expires = call.data.get("expires", 0) # 0 代表永不过期
-        
-        # 构造爱快 API 负载
         payload = {
             "mac": mac,
             "enabled": "yes",
-            "tagname": tagname,
-            "comment": comment,
-            "expires": expires,
-            # 默认为全天开启策略
-            "strategy": "day",
-            "cycle_time": "all",
-            "time": "00:00-23:59"
+            "tagname": call.data.get("tagname", f"HA_{mac[-5:]}"),
+            "comment": call.data.get("comment", "Added by HA"),
+            "expires": call.data.get("expires", 0),
+            "strategy": "day", "cycle_time": "all", "time": "00:00-23:59"
         }
         
         await coordinator.api.add_mac_rule(payload)

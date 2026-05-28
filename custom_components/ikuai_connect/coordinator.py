@@ -4,11 +4,17 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import DeviceInfo
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    CONF_TRACKER_CONFIG,
+    CONF_OFFLINE_GRACE_PERIOD,
+    DEFAULT_OFFLINE_GRACE_PERIOD,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,55 +30,43 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.host = host
         self.last_msg_id = None
         self.last_presence_id = None
+        self._hostname = "iKuai"
+        self._last_seen: dict[str, float] = {}
+
 
     async def _async_update_data(self) -> dict[str, Any]:
         """抓取并清洗数据."""
         try:
+            
             # 异步并发抓取所有端点的数据
             results = await self.api.get_all_data()
             
             # 任务预检逻辑
-            for i, res in enumerate(results):
-                if isinstance(res, Exception):
-                    # 核心任务：0:系统信息, 1:终端监控, 6:接口实时状态, 7:接口物理配置
-                    # 这些任务失败意味着基础数据链断裂，必须中止更新
-                    if i in [0, 1, 6, 7]:
-                        _LOGGER.error(
-                            "iKuai 核心监控任务 %s (Critical) 执行失败，本次数据更新已中止: %s", 
-                            i, res
-                        )
-                        raise res
-                    
-                    # 可选任务：2,3:无线统计/评分, 4:消息中心, 5:上下线日志, 
-                    # 8:IPv6流量, 9:备份, 10,11:升级, 12:磁盘, 13,14:安全/MAC
-                    # 这些任务失败可能是由于固件版本较低（未开放该接口）或硬件不支持（如无磁盘/无AP）
-                    else:
-                        _LOGGER.debug(
-                            "iKuai 可选功能任务 %s (Optional) 执行失败（可能固件版本不支持或硬件未就绪）: %s", 
-                            i, res
-                        )
+            for i in [0, 1, 2]:
+                if isinstance(results[i], Exception):
+                    raise results[i]
 
-            # --- 1. 正确解包 15 个变量 (顺序必须与 api.py 完全一致) ---
-            (sys_res, clients_res, wifi_stats_res, wifi_score_res, 
-             msg_center_res, presence_log_res,
-             iface_status_res, iface_config_res, v6_res, 
-             backup_res, up_info_res, up_status_res, 
-             disks_res, mac_mode_res, mac_rules_res) = results
+            # --- 正确解包 14 个变量 (顺序必须与 api.py 完全一致) ---
+            (sys_res, clients_res, wifi_stats_res, 
+             iface_status_res, v6_res, wifi_score_res, 
+             msg_center_res, presence_log_res, 
+             mac_mode_res, mac_rules_res, 
+             backup_res, up_info_res, up_status_res, disks_res) = results
 
-            # --- 2. 基础元数据提取 --- 包括主机名、系统版本、硬件版本等 (供设备信息使用)
-            sysinfo = (sys_res or {}).get("sysinfo", {})
+            # ---基础元数据提取 --- 包括主机名、系统版本、硬件版本等 (供设备信息使用)
+            sysinfo = sys_res.get("sysinfo", {}) if isinstance(sys_res, dict) else {}
             verinfo = sysinfo.get("verinfo", {})
             self._hostname = sysinfo.get("hostname", "iKuai")
-            self._sw_version = sysinfo.get("verinfo", {}).get("version", "Unknown")
-            self._hw_version = sysinfo.get("verinfo", {}).get("arch", "Unknown")
+            self._sw_version = verinfo.get("version", "Unknown")
+            self._hw_version = verinfo.get("arch", "Unknown")
             ver_string = verinfo.get("verstring", "Unknown")
-            
+
             mem = sysinfo.get("memory", {})
             users = sysinfo.get("online_user", {})
             stream = sysinfo.get("stream", {})
 
-            # --- 3. WAN IPv4 提取 (物理网口 wan1) ---
-            iface_check_list = (iface_status_res or {}).get("iface_check", [])
+            # ---WAN IPv4 提取 (物理网口 wan1) ---
+            iface_check_list = iface_status_res.get("iface_check", []) if isinstance(iface_status_res, dict) else []
             wan_v4_ip = "Disconnected"
             for check in iface_check_list:
                 if check.get("parent_interface") == "wan1":
@@ -81,8 +75,8 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         wan_v4_ip = ip
                         if check.get("result") == "success": break
 
-            # --- 4. IPv6 流量与连接数汇总 ---
-            v6_data_list = (v6_res or {}).get("data", [])
+            # ---IPv6 流量与连接数汇总 ---
+            v6_data_list = v6_res.get("data", []) if isinstance(v6_res, dict) else []
             v6_total = {"up": 0, "down": 0, "t_up": 0, "t_down": 0, "conn": 0}
             for v6_item in v6_data_list:
                 v6_total["up"] += int(v6_item.get("upload", 0))
@@ -91,7 +85,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 v6_total["t_down"] += int(v6_item.get("total_download", 0))
                 v6_total["conn"] += int(v6_item.get("conn", 0))
 
-            # --- 5. 构建 processed_sys (主设备) ---
+            # ---构建 processed_sys (主设备) ---
             processed_sys = {
                 "cpu_load": float(sysinfo.get("cpu", ["0%"])[0].replace("%", "")),
                 "memory_usage": float(mem.get("used", "0%").replace("%", "")),
@@ -115,7 +109,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             }
 
-            # --- 6. 处理无线监控 (AP) ---
+            # ---处理无线监控 (AP) ---
             wifi_data = wifi_stats_res if isinstance(wifi_stats_res, dict) else {}
             ap_status = wifi_data.get("ap_status", {})
             clt_status = wifi_data.get("clt_status", {})
@@ -141,30 +135,92 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             })
 
-            # --- 7. 处理消息与事件 ---
+            # ---处理系统消息中心事件 ---
             new_messages = []
-            msg_data = (msg_center_res or {}).get("data", [])
-            if msg_data:
-                latest_id = msg_data[0].get("id")
-                if self.last_msg_id is None: self.last_msg_id = latest_id
-                elif latest_id > self.last_msg_id:
-                    new_messages = [m for m in msg_data if m.get("id") > self.last_msg_id]
-                    self.last_msg_id = latest_id
+            # 增加类型检查，防止 TimeoutError 对象调用 .get()
+            msg_res_data = msg_center_res.get("data", []) if isinstance(msg_center_res, dict) else []
+            if msg_res_data:
+                # 获取当前最新的 ID (API返回通常是降序，所以取第一个)
+                current_max_msg_id = msg_res_data[0].get("id", 0)
+                
+                if self.last_msg_id is None:
+                    # 第一次运行：初始化 ID，不触发历史消息
+                    self.last_msg_id = current_max_msg_id
+                elif current_max_msg_id > self.last_msg_id:
+                    # 找出所有比上次 ID 大的新消息，并按时间正序排列
+                    new_messages = sorted(
+                        [m for m in msg_res_data if m.get("id", 0) > self.last_msg_id],
+                        key=lambda x: x.get("id", 0)
+                    )
+                    self.last_msg_id = current_max_msg_id
 
             # ---处理终端上下线事件 ---
             new_presence = []
-            presence_data = (presence_log_res or {}).get("data", [])
-            if presence_data:
-                latest_p_id = presence_data[0].get("id")
+            presence_res_data = presence_log_res.get("data", []) if isinstance(presence_log_res, dict) else []
+            
+            if presence_res_data:
+                # 1. 找出所有 ID
+                all_ids = [p.get("id", 0) for p in presence_res_data]
+                current_max_p_id = max(all_ids) if all_ids else 0
+                
                 if self.last_presence_id is None:
-                    self.last_presence_id = latest_p_id
-                elif latest_p_id > self.last_presence_id:
-                    new_presence = [p for p in presence_data if p.get("id") > self.last_presence_id]
-                    self.last_presence_id = latest_p_id
+                    # 初次启动，仅记录锚点 ID
+                    self.last_presence_id = current_max_p_id
+                elif current_max_p_id > self.last_presence_id:
+                    # 2. 提取所有大于上次 ID 的新记录，并按 ID 升序排序（保证触发顺序正确）
+                    new_presence = sorted(
+                        [p for p in presence_res_data if p.get("id", 0) > self.last_presence_id],
+                        key=lambda x: x.get("id", 0)
+                    )
+                    # 3. 更新锚点
+                    self.last_presence_id = current_max_p_id
 
-            # --- 8. 处理网口监控 (Interfaces) ---
+            # --- 终端映射 (Clients) ---
+            now = time.time()
+            tracker_config = self.config_entry.options.get(CONF_TRACKER_CONFIG, {})
+            grace_seconds = self.config_entry.options.get(CONF_OFFLINE_GRACE_PERIOD, DEFAULT_OFFLINE_GRACE_PERIOD)            
+            # 拿到 API 当前实时在线的列表
+            api_online_map = {}
+            if isinstance(clients_res, dict):
+                for c in clients_res.get("data", []):
+                    if "mac" not in c: continue
+                    
+                    mac_l = str(c["mac"]).lower().replace("-", ":")
+                    
+                    fallback_name = (
+                        c.get("termname") 
+                        or c.get("client_model") 
+                        or extract_name_from_label(c.get("comment")) 
+                        or f"Client {mac_l.replace(':', '')[-4:]}"
+                    )
+                    c["display_name"] = fallback_name
+                    api_online_map[mac_l] = c
+
+            previous_clients = self.data.get("clients", {}) if self.data and isinstance(self.data, dict) else {}
+            final_clients_map = {}
+            
+            for mac_lower, device_conf in tracker_config.items():
+                if mac_lower in api_online_map:
+                    self._last_seen[mac_lower] = now
+                    final_clients_map[mac_lower] = api_online_map[mac_lower]
+                else:
+                    last_seen_ts = self._last_seen.get(mac_lower, 0)
+                    elapsed = now - last_seen_ts
+                    dev_grace = device_conf.get("buffer", grace_seconds)
+                    
+                    if elapsed < dev_grace:
+                        # 沿用缓存数据，如果没有则创建一个带基本名称的字典
+                        final_clients_map[mac_lower] = previous_clients.get(
+                            mac_lower, 
+                            {"mac": mac_lower, "ip_addr": "Unknown", "offline_buffering": True}
+                        )
+                    else:
+                        # 【真正离线】：不加入 final_clients_map
+                        _LOGGER.debug("设备 %s 离线超时，设置为离开", mac_lower)
+
+            # ---子设备 处理接口监控 (Interfaces) ---
             processed_ifaces = {}
-            iface_stream_list = (iface_status_res or {}).get("iface_stream", [])
+            iface_stream_list = iface_status_res.get("iface_stream", []) if isinstance(iface_status_res, dict) else []
             iface_to_parent = {i.get("interface"): i.get("parent_interface") for i in iface_check_list}
 
             for s in iface_stream_list:
@@ -180,57 +236,117 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "total_up": int(s.get("total_up", 0)), "total_down": int(s.get("total_down", 0)),
                 }
 
-            # --- 9. 处理维护数据 (Backup/Upgrade) ---
+            # ---子设备 处理升级与备份 (Backup/Upgrade) ---
+            # 备份列表中找最新的一个，提取文件名、大小、版本等信息
             latest_backup = {}
             if isinstance(backup_res, dict):
                 b_info = backup_res.get("backup_info", [])
                 if b_info:
                     top = sorted(b_info, key=lambda x: x.get("timestamp", 0), reverse=True)[0]
-                    latest_backup = {"latest_filename": top.get("filename"), "detail": {"size": top.get("filesize"), "ver": top.get("version")}}
-
-            up_data = (up_info_res or {}).get("data", {})
-            up_stat = (up_status_res or {}).get("auto_upgrade", {})
-            display_up = "最新"
-            if up_stat.get("status", 0) != 0: display_up = up_stat.get("status_msg", "升级中")
-            elif up_data.get("new_system_ver") and up_data.get("new_system_ver") != up_data.get("system_ver"):
-                display_up = f"可升级: {up_data.get('new_system_ver')}"
+                    latest_backup = {"latest_filename": top.get("filename"), "detail": {"backtype": top.get("backtype"), "filesize": top.get("filesize"), "version": top.get("version")}}
             
+            # 升级信息中提取当前版本、最新版本、升级日志等，并根据状态码判断是否正在升级或可升级
+            up_data = up_info_res.get("data", {}) if isinstance(up_info_res, dict) else {}
+            up_stat_info = up_status_res.get("auto_upgrade", {}) if isinstance(up_status_res, dict) else {}
+            curr_ver = up_data.get("system_ver")
+            new_ver = up_data.get("new_system_ver")
+            # status: 0=空闲, 1=下载中, 2=安装中, <0=失败
+            status_code = up_stat_info.get("status", 0)
+            status_msg = up_stat_info.get("status_msg", "")
+            # 计算显示状态逻辑
+            if status_code != 0:
+                # 正在升级（下载或安装）
+                display_up = status_msg if status_msg else "正在处理升级..."
+            elif new_ver and new_ver != curr_ver:
+                # 有新版本
+                display_up = f"发现新版本: {new_ver}"
+            else:
+                # 已是最新
+                display_up = "已是最新版本"
+
             processed_maint = {
-                "upgrade_state": display_up,
-                "upgrade_detail": {"curr": up_data.get("system_ver"), "new": up_data.get("new_system_ver"), "log": up_data.get("update_content")}
+
+                "upgrade_display_state": display_up,
+                "upgrade_detail": {
+                    "current_version": curr_ver,
+                    "latest_version": new_ver,
+                    "version_type": up_data.get("version_type"),
+                    "build_date": up_data.get("build_date"),
+                    "update_content": up_data.get("update_content", "无更新说明"),
+                    "last_check": time.strftime('%Y-%m-%d %H:%M:%S')
+                }
             }
 
-            # --- 10. 处理磁盘存储 (Storage) ---
+            # ---处理安全管理 (Security) ---
+            processed_security = {
+                "mac_mode_code": mac_mode_res.get("acl_mac", 0) if isinstance(mac_mode_res, dict) else 0,
+                "mac_rules": {str(r["id"]): r for r in (mac_rules_res.get("data", []) if isinstance(mac_rules_res, dict) else []) if "id" in r}
+            }
+
+            # ---处理磁盘存储 (Storage) ---
+            PURPOSE_MAP = {"0": "普通储存", "1": "有余繁星", "2": "视频缓存", "3": "行为记录", "4": "钉钉闪传"}
+
             processed_disks = {}
-            disk_raw = (disks_res or {}).get("data", [])
+            disk_raw = disks_res.get("data", []) if isinstance(disks_res, dict) else []
+
             for d in disk_raw:
                 disk_id = d.get("disk")
-                t_b, u_b, p_list = 0, 0, []
+                total_bytes = 0
+                used_bytes = 0
+                partitions = []
+
                 for p in d.get("partition", []):
-                    m = p.get("mounted", {})
-                    if m and m.get("mt_total"):
-                        t_b += int(m.get("mt_total", 0)); u_b += int(m.get("mt_used", 0))
-                        p_list.append({"name": p.get("name"), "usage": f"{m.get('mt_uses')}%", "mount": m.get("mt_name")})
+                    m = p.get("mounted") or {}
+                    mt_total = int(m.get("mt_total") or 0)
+                    mt_used = int(m.get("mt_used") or 0)
+
+                    # 累加磁盘总量与使用量
+                    if mt_total > 0:
+                        total_bytes += mt_total
+                        used_bytes += mt_used
+
+                    # 处理 usage 字段，避免重复百分号
+                    mt_uses = m.get("mt_uses")
+                    if isinstance(mt_uses, str) and mt_uses.endswith("%"):
+                        usage = mt_uses
+                    else:
+                        usage = f"{mt_uses}%" if mt_uses is not None else "未知"
+
+                    # purpose 映射，统一转字符串
+                    purpose_key = str(m.get("mt_purpose"))
+                    purpose = PURPOSE_MAP.get(purpose_key, "未知")
+
+                    partitions.append({
+                        "name": p.get("name"),
+                        "usage": usage,
+                        "mount": m.get("mt_name"),
+                        "purpose": purpose
+                    })
+
+                # 计算磁盘使用率
+                usage_pct = round(used_bytes / total_bytes * 100, 1) if total_bytes > 0 else 0
+
                 processed_disks[disk_id] = {
-                    "base_info": {"model": d.get("model"), "disk": disk_id, "system": d.get("system")},
-                    "state": {"disk_physical_size": d.get("size"), "disk_usage_pct": round((u_b/t_b*100),1) if t_b > 0 else 0, "disk_used_size": u_b},
-                    "partitions": p_list
+                    "base_info": {
+                        "model": d.get("model"),
+                        "disk": disk_id,
+                        "system": d.get("system"),
+                        "type": d.get("type"),
+                        "block_size": d.get("block_size")
+                    },
+                    "state": {
+                        "disk_physical_size": d.get("size"),
+                        "disk_usage_pct": usage_pct,
+                        "disk_used_size": used_bytes
+                    },
+                    "partitions": partitions
                 }
 
-            # --- 11. 处理安全管理 (Security) ---
-            processed_security = {
-                "mac_mode_code": (mac_mode_res or {}).get("acl_mac", 0),
-                "mac_rules": {str(r["id"]): r for r in (mac_rules_res or {}).get("data", []) if "id" in r}
-            }
-
-            # --- 12. 终端映射 (Clients) ---
-            client_list = (clients_res or {}).get("data", [])
-            clients_map = {str(c["mac"]).lower().replace("-", ":"): c for c in client_list if "mac" in c}
 
             # --- 【最终唯一返回点】：整合所有模块 ---
             return {
                 "system": processed_sys,
-                "clients": clients_map,
+                "clients": final_clients_map,
                 "interfaces": processed_ifaces,
                 "backup": latest_backup,
                 "maintenance": processed_maint,
