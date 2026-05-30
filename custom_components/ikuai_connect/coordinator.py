@@ -9,6 +9,7 @@ from typing import Any
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import DeviceInfo
+from .helpers import extract_name_from_label
 from .const import (
     DOMAIN,
     CONF_TRACKER_CONFIG,
@@ -30,6 +31,8 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.host = host
         self.last_msg_id = None
         self.last_presence_id = None
+        self.last_ddns_id = None
+        self.last_wifi_id = None
         self._hostname = "iKuai"
         self._last_seen: dict[str, float] = {}
 
@@ -46,12 +49,28 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if isinstance(results[i], Exception):
                     raise results[i]
 
-            # --- 正确解包 14 个变量 (顺序必须与 api.py 完全一致) ---
-            (sys_res, clients_res, wifi_stats_res, 
-             iface_status_res, v6_res, wifi_score_res, 
-             msg_center_res, presence_log_res, 
-             mac_mode_res, mac_rules_res, 
-             backup_res, up_info_res, up_status_res, disks_res) = results
+            # --- 正确解包变量 (顺序必须与 api.py 完全一致) ---
+            (
+                sys_res,            # 0 系统信息（get_system_info）
+                clients_res,        # 1 终端列表（get_lan_devices）
+                wifi_stats_res,     # 2 无线统计（get_wifi_stats）
+                wifi_score_res,     # 3 无线评分（get_wifi_score）
+                v6_res,             # 4 IPv6 流量（get_v6_traffic）
+
+                iface_status_res,   # 5 线路状态（get_iface_status）
+                msg_center_res,     # 6 消息中心（get_message_center）
+                presence_log_res,   # 7 上下线日志（get_offline_history）
+                ddns_log_res,      # 8 DDNS 日志（get_ddns_logs）
+                wireless_log_res,  # 9 无线日志（get_wireless_logs）
+
+                mac_mode_res,       # 10 MAC 模式（get_mac_mode）
+                mac_rules_res,      # 11 MAC 规则（get_mac_rules）
+                backup_res,         # 12 备份列表（get_backup_list）
+                up_info_res,        # 13 升级信息（get_upgrade_info）
+                up_status_res,      # 14 升级状态（get_upgrade_status）
+                disks_res           # 15 磁盘信息（get_disks）
+            ) = results
+
 
             # ---基础元数据提取 --- 包括主机名、系统版本、硬件版本等 (供设备信息使用)
             sysinfo = sys_res.get("sysinfo", {}) if isinstance(sys_res, dict) else {}
@@ -135,46 +154,6 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             })
 
-            # ---处理系统消息中心事件 ---
-            new_messages = []
-            # 增加类型检查，防止 TimeoutError 对象调用 .get()
-            msg_res_data = msg_center_res.get("data", []) if isinstance(msg_center_res, dict) else []
-            if msg_res_data:
-                # 获取当前最新的 ID (API返回通常是降序，所以取第一个)
-                current_max_msg_id = msg_res_data[0].get("id", 0)
-                
-                if self.last_msg_id is None:
-                    # 第一次运行：初始化 ID，不触发历史消息
-                    self.last_msg_id = current_max_msg_id
-                elif current_max_msg_id > self.last_msg_id:
-                    # 找出所有比上次 ID 大的新消息，并按时间正序排列
-                    new_messages = sorted(
-                        [m for m in msg_res_data if m.get("id", 0) > self.last_msg_id],
-                        key=lambda x: x.get("id", 0)
-                    )
-                    self.last_msg_id = current_max_msg_id
-
-            # ---处理终端上下线事件 ---
-            new_presence = []
-            presence_res_data = presence_log_res.get("data", []) if isinstance(presence_log_res, dict) else []
-            
-            if presence_res_data:
-                # 1. 找出所有 ID
-                all_ids = [p.get("id", 0) for p in presence_res_data]
-                current_max_p_id = max(all_ids) if all_ids else 0
-                
-                if self.last_presence_id is None:
-                    # 初次启动，仅记录锚点 ID
-                    self.last_presence_id = current_max_p_id
-                elif current_max_p_id > self.last_presence_id:
-                    # 2. 提取所有大于上次 ID 的新记录，并按 ID 升序排序（保证触发顺序正确）
-                    new_presence = sorted(
-                        [p for p in presence_res_data if p.get("id", 0) > self.last_presence_id],
-                        key=lambda x: x.get("id", 0)
-                    )
-                    # 3. 更新锚点
-                    self.last_presence_id = current_max_p_id
-
             # --- 终端映射 (Clients) ---
             now = time.time()
             tracker_config = self.config_entry.options.get(CONF_TRACKER_CONFIG, {})
@@ -218,7 +197,9 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         # 【真正离线】：不加入 final_clients_map
                         _LOGGER.debug("设备 %s 离线超时，设置为离开", mac_lower)
 
-            # ---子设备 处理接口监控 (Interfaces) ---
+            # ---接口监控管理子设备---
+
+            # ---处理接口监控 (Interfaces) ---
             processed_ifaces = {}
             iface_stream_list = iface_status_res.get("iface_stream", []) if isinstance(iface_status_res, dict) else []
             iface_to_parent = {i.get("interface"): i.get("parent_interface") for i in iface_check_list}
@@ -236,7 +217,62 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "total_up": int(s.get("total_up", 0)), "total_down": int(s.get("total_down", 0)),
                 }
 
-            # ---子设备 处理升级与备份 (Backup/Upgrade) ---
+            # ---系统维护管理子设备---
+
+            # ---日志---
+            def get_new_events(res_data, last_id_attr):
+                if not isinstance(res_data, dict): 
+                    return [], getattr(self, last_id_attr)
+                
+                # --- 关键修正：兼容嵌套结构 ---
+                data_list = res_data.get("data")
+                if data_list is None:
+                    data_list = res_data.get("results", {}).get("data", [])
+                
+                if not data_list: 
+                    return [], getattr(self, last_id_attr)
+                
+                curr_max_id = data_list[0].get("id", 0)
+                last_id = getattr(self, last_id_attr)
+                
+                # 冷启动：激活最新一条
+                if last_id is None:
+                    setattr(self, last_id_attr, curr_max_id - 1)
+                    last_id = curr_max_id - 1
+                
+                new_items = []
+                if curr_max_id > last_id:
+                    # 只取比上次记录 ID 更大的新数据
+                    new_items = sorted(
+                        [item for item in data_list if item.get("id", 0) > last_id],
+                        key=lambda x: x.get("id", 0)
+                    )
+                    setattr(self, last_id_attr, curr_max_id)
+                return new_items, getattr(self, last_id_attr)
+
+            # 提取三类新事件
+            new_presence, _ = get_new_events(presence_log_res, "last_presence_id")
+            new_ddns, _ = get_new_events(ddns_log_res, "last_ddns_id")
+            new_wifi, _ = get_new_events(wireless_log_res, "last_wifi_id")
+
+            # ---处理消息中心增量---
+            new_messages = []
+            msg_res_data = msg_center_res.get("data", []) if isinstance(msg_center_res, dict) else []
+            if msg_res_data:
+                curr_max_m = msg_res_data[0].get("id", 0)
+                if self.last_msg_id is not None and curr_max_m > self.last_msg_id:
+                    new_messages = [m for m in msg_res_data if m.get("id") > self.last_msg_id]
+                self.last_msg_id = curr_max_m
+
+            # ---安全管理子设备---
+
+            # ---处理安全管理 (Security) ---
+            processed_security = {
+                "mac_mode_code": mac_mode_res.get("acl_mac", 0) if isinstance(mac_mode_res, dict) else 0,
+                "mac_rules": {str(r["id"]): r for r in (mac_rules_res.get("data", []) if isinstance(mac_rules_res, dict) else []) if "id" in r}
+            }
+
+            # ---处理升级与备份 (Backup/Upgrade) ---
             # 备份列表中找最新的一个，提取文件名、大小、版本等信息
             latest_backup = {}
             if isinstance(backup_res, dict):
@@ -277,11 +313,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 }
             }
 
-            # ---处理安全管理 (Security) ---
-            processed_security = {
-                "mac_mode_code": mac_mode_res.get("acl_mac", 0) if isinstance(mac_mode_res, dict) else 0,
-                "mac_rules": {str(r["id"]): r for r in (mac_rules_res.get("data", []) if isinstance(mac_rules_res, dict) else []) if "id" in r}
-            }
+            # ---存储磁盘子设备---
 
             # ---处理磁盘存储 (Storage) ---
             PURPOSE_MAP = {"0": "普通储存", "1": "有余繁星", "2": "视频缓存", "3": "行为记录", "4": "钉钉闪传"}
@@ -352,9 +384,13 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "maintenance": processed_maint,
                 "disks": processed_disks,
                 "security": processed_security,
-                "events": {"messages": new_messages, "presence": new_presence}
+                "events": {
+                    "presence": new_presence,
+                    "ddns": new_ddns,
+                    "wifi": new_wifi,
+                    "messages": new_messages
+                }
             }
-
         except Exception as err:
             _LOGGER.exception("iKuai Coordinator 数据清洗关键错误")
             raise UpdateFailed(f"API 错误: {err}") from err
@@ -362,9 +398,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # 主设备        
     @property
     def device_info(self) -> DeviceInfo:
-
         device_name = self.config_entry.title
-
         return DeviceInfo(
             identifiers={(DOMAIN, self.host)},
             name=f"{self._hostname} {device_name}",
@@ -375,7 +409,7 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             configuration_url=self.host,
         )
     
-    #接口管理子设备    
+    # 接口管理子设备    
     @property
     def iface_mgmt_device_info(self) -> DeviceInfo:
         return DeviceInfo(
@@ -385,25 +419,25 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             model="Interface Monitor",
             via_device=(DOMAIN, self.host),
         )
-    
-    # 升级与备份管理子设备    
-    @property
-    def maintenance_device_info(self) -> DeviceInfo:
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"{self.host}_maintenance")},
-            name=f"{self.config_entry.title} 升级与备份管理",
-            manufacturer="iKuai",
-            model="System Maintenance",
-            via_device=(DOMAIN, self.host),
-        )
-
+     
     # 定义安全管理子设备
     @property
     def security_device_info(self) -> DeviceInfo:
         return DeviceInfo(
             identifiers={(DOMAIN, f"{self.host}_security")},
-            name=f"{self.config_entry.title} 安全管理",
+            name=f"{self.config_entry.title} 安全中心管理",
             manufacturer="iKuai",
             model="Security & Firewall",
+            via_device=(DOMAIN, self.host),
+        )
+
+    # 升级与备份管理子设备    
+    @property
+    def maintenance_device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.host}_maintenance")},
+            name=f"{self.config_entry.title} 系统维护管理",
+            manufacturer="iKuai",
+            model="System Maintenance",
             via_device=(DOMAIN, self.host),
         )

@@ -43,15 +43,11 @@ async def async_setup_entry(
         # 只要配置里有，我们就创建对象
         entities_to_add.append(IkuaiTracker(coordinator, mac_lower, conf, uid))
 
-    # 【清理逻辑】：仅负责删除“配置中已消失”的实体
     for entity in existing_entries:
         if entity.domain == "device_tracker" and entity.unique_id not in current_uids:
             _LOGGER.info("注销已移除的追踪实体: %s", entity.entity_id)
             ent_reg.async_remove(entity.entity_id)
 
-    # 将所有实体提交。HA 核心会自动处理：
-    # 1. 发现 unique_id 已有的 -> 更新 runtime 对象
-    # 2. 发现 unique_id 没有的 -> 创建新条目
     if entities_to_add:
         async_add_entities(entities_to_add, True)
 
@@ -65,11 +61,9 @@ class IkuaiTracker(CoordinatorEntity[IkuaiCoordinator], TrackerEntity):
     def __init__(self, coordinator: IkuaiCoordinator, mac: str, config: dict, uid: str) -> None:
         """Initialize."""
         super().__init__(coordinator)
-        self._mac = mac # 小写带冒号
+        self._mac = mac
         self._attr_name = config.get("name")
         self._attr_unique_id = uid
-        
-        # 关联到 iKuai 路由器主设备
         self._attr_device_info = coordinator.device_info
 
     @property

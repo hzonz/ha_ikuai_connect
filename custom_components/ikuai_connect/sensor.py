@@ -32,28 +32,28 @@ async def async_setup_entry(
     coordinator: IkuaiCoordinator = entry.runtime_data
     entities: list[SensorEntity] = []
 
-    # 1. 处理系统级传感器 (CPU/内存等)
-    # 这些是核心数据，保持默认启用状态
+    # 批量处理【主设备】负载传感器 (CPU/内存/连接数/系统流)
     for description in SYSTEM_SENSORS:
         entities.append(IkuaiSystemSensor(coordinator, description))
 
-    # 2. 批量处理【接口监控管理】子设备下的所有网口传感器
+    # 批量处理【接口监控管理】子设备传感器 (wan1/lan1 等)
     interfaces = coordinator.data.get("interfaces", {})
     for iface_name in interfaces:
+        # 这里取消了之前的 wan1 过滤判断，由 API/Coordinator 层保证物理口纯净
         for description in INTERFACE_SENSORS:
             entities.append(IkuaiIfaceSensor(coordinator, description, iface_name))
 
-    # 3. 添加升级与备份传感器 (挂载在维护子设备)
+    # 批量处理【升级与备份管理】子设备传感器
     for description in MAINTENANCE_SENSORS:
         entities.append(IkuaiMaintenanceSensor(coordinator, description))
 
-    # 4. 添加磁盘信息传感器 (挂载在维护子设备)
+    # 批量处理【存储管理】子设备传感器 (基于物理磁盘型号)
     disks_data = coordinator.data.get("disks", {})
-    for disk_id, disk_info in disks_data.items():
+    for disk_id in disks_data:
         for description in DISK_SENSORS:
             entities.append(IkuaiDiskSensor(coordinator, description, disk_id))
 
-    # 提交所有实体。True 表示在添加前先执行一次坐标器数据同步，确保一出来就有值
+    # 提交所有实体。True 表示在添加前先执行一次坐标器数据同步
     async_add_entities(entities, True)
 
 
@@ -93,10 +93,7 @@ class IkuaiIfaceSensor(CoordinatorEntity[IkuaiCoordinator], SensorEntity):
         super().__init__(coordinator)
         self.entity_description = description
         self._iface_name = iface_name
-        
         self._attr_translation_placeholders = {"iface": iface_name}
-        
-        # 保持唯一 ID 不变，确保历史数据不丢失
         self._attr_unique_id = f"{coordinator.host}_{iface_name}_{description.key}"
         self._attr_device_info = coordinator.iface_mgmt_device_info
 
@@ -108,7 +105,7 @@ class IkuaiIfaceSensor(CoordinatorEntity[IkuaiCoordinator], SensorEntity):
         return iface_data.get(self.entity_description.key)
 
 class IkuaiMaintenanceSensor(CoordinatorEntity[IkuaiCoordinator], SensorEntity):
-    """升级与备份管理 (子设备)."""
+    """系统维护管理 (子设备)."""
     _attr_has_entity_name = True
     def __init__(self, coordinator, description):
         super().__init__(coordinator)
@@ -140,11 +137,8 @@ class IkuaiDiskSensor(CoordinatorEntity[IkuaiCoordinator], SensorEntity):
         # 获取该硬盘的型号作为设备名参考
         disk_data = coordinator.data["disks"].get(disk_id, {})
         model = disk_data.get("base_info", {}).get("model", disk_id)
-        
-        # 1. 唯一 ID (包含 host, disk_id 和 实体 key)
         self._attr_unique_id = f"{coordinator.host}_{disk_id}_{description.key}"
-        
-        # 2. 定义子设备信息 (以型号命名)
+        # 定义子设备信息 (以型号命名)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.host}_disk_{disk_id}")},
             name=f"存储: {model}", # 例如：存储: QEMU HARDDISK

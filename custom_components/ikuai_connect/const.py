@@ -1,4 +1,4 @@
-"""ikuai connect."""
+"""Constants for iKuai Connect."""
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final, Callable, Any
@@ -22,6 +22,7 @@ from homeassistant.const import (
 )
 
 DOMAIN: Final = "ikuai_connect"
+# 定义受支持的平台
 PLATFORMS: Final = [
     Platform.SENSOR, 
     Platform.DEVICE_TRACKER, 
@@ -32,16 +33,13 @@ PLATFORMS: Final = [
 ]
 
 CONF_TRACKER_CONFIG: Final = "tracker_config"
-CONF_OFFLINE_GRACE_PERIOD: Final = "offline_grace_period" # 离线缓冲分钟
+CONF_OFFLINE_GRACE_PERIOD: Final = "offline_grace_period"
 
-DEFAULT_SCAN_INTERVAL = 15 # 默认扫描间隔（秒）
-DEFAULT_OFFLINE_GRACE_PERIOD = 30 # 默认 30秒
+DEFAULT_SCAN_INTERVAL = 15
+DEFAULT_OFFLINE_GRACE_PERIOD = 30 # 默认30（秒单位）
 
 # MAC 访问控制模式映射
-MAC_ACL_MODES = {
-    0: "blacklist",
-    1: "whitelist"
-}
+MAC_ACL_MODES = {0: "blacklist", 1: "whitelist"}
 MAC_ACL_MODES_REVERSE = {v: k for k, v in MAC_ACL_MODES.items()}
 
 @dataclass(frozen=True, kw_only=True)
@@ -53,14 +51,13 @@ class IkuaiSensorEntityDescription(SensorEntityDescription):
 @dataclass(frozen=True, kw_only=True)
 class IkuaiButtonEntityDescription(ButtonEntityDescription):
     """描述按钮动作."""
-    # 允许在描述符中直接定义动作
     action_type: str 
 
 @dataclass(frozen=True, kw_only=True)
 class IkuaiEventEntityDescription(EventEntityDescription):
     """描述 iKuai 事件实体."""
 
-# 1. 系统负载传感器 (挂载在主设备下)
+# 主设备 (Main Router) 传感器组
 SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="cpu_load",
@@ -191,67 +188,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     )
 )
 
-# 事件实体定义
-EVENT_TYPES: Final[tuple[IkuaiEventEntityDescription, ...]] = (
-    IkuaiEventEntityDescription(
-        key="message_center",
-        name="System Notifications",
-        translation_key="message_center",
-        icon="mdi:bell-ring",
-    ),
-    IkuaiEventEntityDescription(
-        key="terminal_presence",
-        name="Terminal Activity",
-        translation_key="terminal_presence",
-        icon="mdi:account-clock",
-    ),
-)
-
-# 定义所有按钮
-BUTTON_TYPES: Final[tuple[IkuaiButtonEntityDescription, ...]] = (
-    IkuaiButtonEntityDescription(
-        key="reboot",
-        name="Reboot",
-        translation_key="reboot",
-        icon="mdi:restart",
-        device_class=ButtonDeviceClass.RESTART,
-        action_type="reboot_main",
-        entity_registry_enabled_default=False,
-    ),
-    IkuaiButtonEntityDescription(
-        key="check_upgrade",
-        name="Check for Updates",
-        translation_key="check_update",
-        icon="mdi:update",
-        action_type="check_upgrade",
-    ),
-    IkuaiButtonEntityDescription(
-        key="start_upgrade",
-        name="Start Upgrade",
-        translation_key="start_upgrade",
-        icon="mdi:cloud-download",
-        action_type="start_upgrade",
-    ),
-    IkuaiButtonEntityDescription(
-        key="create_backup",
-        name="Create Backup",
-        translation_key="create_backup",
-        icon="mdi:database-export",
-        action_type="backup",
-    ),
-)
-
-# 模式选择器描述符
-MAC_MODE_SELECT: Final = SelectEntityDescription(
-    key="mac_acl_mode",
-    name="MAC Access Mode",
-    translation_key="mac_acl_mode",
-    icon="mdi:shield-check",
-    options=["blacklist", "whitelist"],
-    entity_category=EntityCategory.CONFIG, 
-)
-
-# 接口监控设备传感器模板
+# 接口管理 (Interface Management) 传感器组
 INTERFACE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="upload_speed",
@@ -299,7 +236,36 @@ INTERFACE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
 )
 
-# 升级与备份传感器组 (挂载在“升级与备份”子设备下)
+# 系统管理子设备
+# 事件实体定义
+EVENT_TYPES: Final[tuple[IkuaiEventEntityDescription, ...]] = (
+    IkuaiEventEntityDescription(
+        key="message_center",
+        name="System Notifications",
+        translation_key="message_center",
+        icon="mdi:bell-ring",
+    ),
+    IkuaiEventEntityDescription(
+        key="terminal_presence_log",
+        name="Terminal Online and Offline Logs",
+        translation_key="terminal_presence_log",
+        icon="mdi:account-clock",
+    ),
+    IkuaiEventEntityDescription(
+        key="dynamic_ddns_log",
+        name="Dynamic Domain Name Log",
+        translation_key="dynamic_ddns_log",
+        icon="mdi:dns",
+    ),
+    IkuaiEventEntityDescription(
+        key="wireless_terminal_log",
+        name="Wireless terminal log",
+        translation_key="wireless_terminal_log",
+        icon="mdi:wifi-marker",
+    ),
+)
+
+# 升级与备份传感器组
 MAINTENANCE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="upgrade_status",
@@ -319,7 +285,7 @@ MAINTENANCE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
 )
 
-# 增加或更新磁盘描述符
+# 存储硬盘 (Storage) 传感器模板
 DISK_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="disk_physical_size",
@@ -348,5 +314,49 @@ DISK_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         native_unit_of_measurement=UnitOfInformation.BYTES,
         suggested_unit_of_measurement = "GB",
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+)
+
+# 模式选择器描述符
+MAC_MODE_SELECT: Final = SelectEntityDescription(
+    key="mac_acl_mode",
+    name="MAC Access Mode",
+    translation_key="mac_acl_mode",
+    icon="mdi:shield-check",
+    options=["blacklist", "whitelist"],
+    entity_category=EntityCategory.CONFIG, 
+)
+
+# 定义所有按钮
+BUTTON_TYPES: Final[tuple[IkuaiButtonEntityDescription, ...]] = (
+    IkuaiButtonEntityDescription(
+        key="reboot",
+        name="Reboot",
+        translation_key="reboot",
+        icon="mdi:restart",
+        device_class=ButtonDeviceClass.RESTART,
+        action_type="reboot_main",
+        entity_registry_enabled_default=False,
+    ),
+    IkuaiButtonEntityDescription(
+        key="check_upgrade",
+        name="Check for Updates",
+        translation_key="check_update",
+        icon="mdi:update",
+        action_type="check_upgrade",
+    ),
+    IkuaiButtonEntityDescription(
+        key="start_upgrade",
+        name="Start Upgrade",
+        translation_key="start_upgrade",
+        icon="mdi:cloud-download",
+        action_type="start_upgrade",
+    ),
+    IkuaiButtonEntityDescription(
+        key="create_backup",
+        name="Create Backup",
+        translation_key="create_backup",
+        icon="mdi:database-export",
+        action_type="backup",
     ),
 )

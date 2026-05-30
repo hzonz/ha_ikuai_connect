@@ -128,6 +128,10 @@
           "airtime_health_score": { "name": "空中健康分数" }
         }
       },
+      "upload_speed": { "name": "{iface} 实时上传速度" },
+      "download_speed": { "name": "{iface} 实时下载速度" },
+      "total_up": { "name": "{iface} 累计上传流量" },
+      "total_down": { "name": "{iface} 累计下载流量" },
       "upgrade_status": { 
         "name": "固件更新状态",
         "state_attributes": {
@@ -146,7 +150,7 @@
           "filesize": { "name": "文件大小" },
           "version": { "name": "版本号" }
         }
-      },
+      },      
       "disk_total_capacity": { 
         "name": "物理总容量",
         "state_attributes": {
@@ -163,11 +167,7 @@
         "state_attributes": {
           "partitions": { "name": "分区使用详情" }
         }
-      },    
-      "upload_speed": { "name": "{iface} 实时上传速度" },
-      "download_speed": { "name": "{iface} 实时下载速度" },
-      "total_up": { "name": "{iface} 累计上传流量" },
-      "total_down": { "name": "{iface} 累计下载流量" }
+      }
     },
     "button": {
       "reboot": { "name": "重启路由器" },
@@ -175,22 +175,52 @@
       "start_upgrade": { "name": "开始固件升级" },
       "create_backup": { "name": "立即备份系统配置" }
     },
-    "event": {
+    "event": { 
       "message_center": { "name": "系统消息通知" },
-      "terminal_presence": { 
+      "terminal_presence_log": { 
         "name": "终端上下线记录",
         "state_attributes": {
           "mac": { "name": "MAC 地址" },
           "ip": { "name": "IP 地址" },
-          "action": { "name": "动作类型" },
-          "online_seconds": { "name": "在线时长 (秒)" },
-          "upload_mb": { "name": "本次上传 (MB)" },
-          "download_mb": { "name": "本次下载 (MB)" },
+          "action": {
+            "name": "状态",
+            "state": {
+              "online": "上线",
+              "offline": "下线"            
+            }
+          },
+          "online_time": { "name": "在线时长 (秒)" },
+          "today_total": { "name": "今日总计" },
           "os": { "name": "操作系统" },
           "vendor": { "name": "生产商" },
           "model": { "name": "设备型号" },
-          "interface": { "name": "接入接口" },
+          "id": { "name": "ID" },
           "timestamp": { "name": "记录时间" }     
+        }
+      },  
+      "dynamic_ddns_log": { 
+        "name": "动态域名变更记录",       
+        "state_attributes": {
+          "domain": { "name": "域名" },
+          "status": { "name": "状态" },
+          "message": { "name": "日志详情" },
+          "ip": {"name": "IP 地址"},
+          "mac": { "name": "MAC 地址" },
+          "id": { "name": "ID" },
+          "time": { "name": "记录时间" }
+        }
+      },
+      "wireless_terminal_log": { 
+        "name": "无线终端变更记录",     
+        "state_attributes": {
+          "mac": { "name": "MAC 地址" },
+          "ssid": { "name": "SSID" },
+          "signal": { "name": "信号强度" },
+          "ap_mac": { "name": "连接的 AP MAC 地址" },
+          "ap_name": { "name": "接入点" },
+          "action":{ "name": "事件", "state":{ "login": "登录", "logout": "退出"}},
+          "reason": { "name": "状态" },
+          "time": { "name": "记录时间" }
         }
       }
     },
@@ -202,17 +232,6 @@
           "blacklist": "黑名单模式 (阻断模式)"
         }
       }
-    },
-    "device_tracker": {
-      "ikuai_tracker": { 
-        "name": "终端追踪",
-        "state_attributes": {
-          "mac_address": { "name": "MAC 地址" },
-          "ip_address": { "name": "IP 地址" },
-          "ap_mac": { "name": "连接的 AP MAC 地址" },
-          "uplink_addr": { "name": "上行地址" }
-        }
-      }  
     },
     "switch": {
       "mac_rule": {
@@ -238,6 +257,17 @@
           "rule_id": { "name": "规则 ID" }
         }
       }
+    },    
+    "device_tracker": {
+      "ikuai_tracker": { 
+        "name": "终端追踪",
+        "state_attributes": {
+          "mac_address": { "name": "MAC 地址" },
+          "ip_address": { "name": "IP 地址" },
+          "ap_mac": { "name": "连接的 AP MAC 地址" },
+          "uplink_addr": { "name": "上行地址" }
+        }
+      }  
     }
   }
 }

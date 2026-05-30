@@ -25,6 +25,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import IkuaiAPI
+from .helpers import extract_name_from_label
 from .const import (
     DOMAIN,
     CONF_TRACKER_CONFIG,
@@ -33,7 +34,7 @@ from .const import (
     DEFAULT_OFFLINE_GRACE_PERIOD,
 )
 
-from .helpers import extract_name_from_label
+
 
 _LOGGER = logging.getLogger(__name__)
 
