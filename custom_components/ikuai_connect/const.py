@@ -80,7 +80,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
     IkuaiSensorEntityDescription(
         key="online_users",
-        name="Online Users",
+        name="Total Online Devices",
         translation_key="online_users",
         icon="mdi:account-multiple",
         state_class=SensorStateClass.MEASUREMENT,
@@ -89,7 +89,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
     IkuaiSensorEntityDescription(
         key="connection_count",
-        name="Connection Count",
+        name="Total Connection Count",
         translation_key="connection_count",
         icon="mdi:lan-connect",
         state_class=SensorStateClass.MEASUREMENT,
@@ -156,7 +156,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
     IkuaiSensorEntityDescription(
         key="uptime",
-        name="Uptime",
+        name="System Uptime",
         translation_key="uptime",
         icon="mdi:clock-time-eight",
         device_class=SensorDeviceClass.DURATION,
@@ -169,7 +169,7 @@ SYSTEM_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
     IkuaiSensorEntityDescription(
         key="temperature",
-        name="Temperature",
+        name="System Temperature",
         translation_key="temperature",
         icon="mdi:thermometer",
         device_class=SensorDeviceClass.TEMPERATURE,
@@ -241,7 +241,7 @@ INTERFACE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
 EVENT_TYPES: Final[tuple[IkuaiEventEntityDescription, ...]] = (
     IkuaiEventEntityDescription(
         key="message_center",
-        name="System Notifications",
+        name="System Message Notification",
         translation_key="message_center",
         icon="mdi:bell-ring",
     ),
@@ -253,13 +253,13 @@ EVENT_TYPES: Final[tuple[IkuaiEventEntityDescription, ...]] = (
     ),
     IkuaiEventEntityDescription(
         key="dynamic_ddns_log",
-        name="Dynamic Domain Name Log",
+        name="Dynamic DDNS Change Log",
         translation_key="dynamic_ddns_log",
         icon="mdi:dns",
     ),
     IkuaiEventEntityDescription(
         key="wireless_terminal_log",
-        name="Wireless terminal log",
+        name="Wireless Terminal Change Log",
         translation_key="wireless_terminal_log",
         icon="mdi:wifi-marker",
     ),
@@ -269,7 +269,7 @@ EVENT_TYPES: Final[tuple[IkuaiEventEntityDescription, ...]] = (
 MAINTENANCE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="upgrade_status",
-        name="Update Status",
+        name="Firmware Upgrade Status",
         translation_key="upgrade_status",
         icon="mdi:update",
         value_fn=lambda d: d.get("maintenance", {}).get("upgrade_display_state"),
@@ -277,7 +277,7 @@ MAINTENANCE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     ),
     IkuaiSensorEntityDescription(
         key="backup_status",
-        name="Latest Backup",
+        name="Latest Backup File",
         translation_key="latest_backup",
         icon="mdi:database-check",
         value_fn=lambda d: d.get("backup", {}).get("latest_filename"),
@@ -289,7 +289,7 @@ MAINTENANCE_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
 DISK_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
     IkuaiSensorEntityDescription(
         key="disk_physical_size",
-        name="Total Capacity",
+        name="Total Disk Capacity",
         translation_key="disk_total_capacity",
         icon="mdi:database",
         device_class=SensorDeviceClass.DATA_SIZE,
@@ -298,16 +298,16 @@ DISK_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
         state_class=SensorStateClass.MEASUREMENT,
     ),
     IkuaiSensorEntityDescription(
-        key="disk_usage_pct",
-        name="Usage Rate",
+        key="disk_usage_rate",
+        name="Overall Usage Rate",
         translation_key="disk_usage_rate",
         icon="mdi:chart-arc",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     IkuaiSensorEntityDescription(
-        key="disk_used_size",
-        name="Used Capacity",
+        key="disk_used_capacity",
+        name="Used Disk Capacity",
         translation_key="disk_used_capacity",
         icon="mdi:database-minus",
         device_class=SensorDeviceClass.DATA_SIZE,
@@ -320,7 +320,7 @@ DISK_SENSORS: Final[tuple[IkuaiSensorEntityDescription, ...]] = (
 # 模式选择器描述符
 MAC_MODE_SELECT: Final = SelectEntityDescription(
     key="mac_acl_mode",
-    name="MAC Access Mode",
+    name="Global Access Control Mode",
     translation_key="mac_acl_mode",
     icon="mdi:shield-check",
     options=["blacklist", "whitelist"],
@@ -331,7 +331,7 @@ MAC_MODE_SELECT: Final = SelectEntityDescription(
 BUTTON_TYPES: Final[tuple[IkuaiButtonEntityDescription, ...]] = (
     IkuaiButtonEntityDescription(
         key="reboot",
-        name="Reboot",
+        name="Reboot Router",
         translation_key="reboot",
         icon="mdi:restart",
         device_class=ButtonDeviceClass.RESTART,
@@ -340,21 +340,21 @@ BUTTON_TYPES: Final[tuple[IkuaiButtonEntityDescription, ...]] = (
     ),
     IkuaiButtonEntityDescription(
         key="check_upgrade",
-        name="Check for Updates",
+        name="Check Firmware Update",
         translation_key="check_update",
         icon="mdi:update",
         action_type="check_upgrade",
     ),
     IkuaiButtonEntityDescription(
         key="start_upgrade",
-        name="Start Upgrade",
+        name="Start Firmware Upgrade",
         translation_key="start_upgrade",
         icon="mdi:cloud-download",
         action_type="start_upgrade",
     ),
     IkuaiButtonEntityDescription(
         key="create_backup",
-        name="Create Backup",
+        name="Backup System Configuration Now",
         translation_key="create_backup",
         icon="mdi:database-export",
         action_type="backup",

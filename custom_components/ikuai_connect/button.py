@@ -67,23 +67,59 @@ class IkuaiButton(CoordinatorEntity[IkuaiCoordinator], ButtonEntity):
         try:
             if action == "reboot_main":
                 await api.trigger_immediate_reboot()
-                self.hass.components.persistent_notification.async_create(
-                    "重启指令已下发。爱快将在 1 分钟内执行重启。",
-                    title="iKuai Connect",
-                    notification_id="ikuai_reboot_alert"
+
+                await self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "iKuai Connect",
+                        "message": "重启指令已下发，爱快将在 1 分钟内执行重启。",
+                        "notification_id": "ikuai_reboot_alert"
+                    },
+                    blocking=False
                 )
-            
+
             elif action == "check_upgrade":
-                await api.check_upgrade()
-                _LOGGER.info("iKuai: 正在向云端检测新版本...")
-            
+                result = await api.check_upgrade()
+
+                await self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "iKuai Connect",
+                        "message": "正在向云端检测新版本，请稍候查看系统日志。",
+                        "notification_id": "ikuai_upgrade_check"
+                    },
+                    blocking=False
+                )
+
             elif action == "start_upgrade":
                 await api.start_upgrade()
-                _LOGGER.warning("iKuai: 已触发系统升级指令")
-            
+
+                await self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "iKuai Connect",
+                        "message": "系统升级指令已触发，请勿断电或重启设备。",
+                        "notification_id": "ikuai_upgrade_start"
+                    },
+                    blocking=False
+                )
+
             elif action == "backup":
                 await api.trigger_backup()
-                _LOGGER.info("iKuai: 正在创建系统备份...")
+
+                await self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "iKuai Connect",
+                        "message": "系统备份任务已开始，请稍候在后台查看备份文件。",
+                        "notification_id": "ikuai_backup_start"
+                    },
+                    blocking=False
+                )
 
             # 动作完成后处理
             # 对于升级和备份，给 API 2 秒反应时间再刷新数据
