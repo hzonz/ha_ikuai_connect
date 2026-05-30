@@ -5,7 +5,8 @@ import asyncio
 import json
 import logging
 import time
-import datetime
+import pytz
+from datetime import datetime, timedelta
 from typing import Any
 
 from aiohttp import ClientSession
@@ -259,13 +260,15 @@ class IkuaiAPI:
 
     async def trigger_immediate_reboot(self) -> bool:
         """创建一次性计划实现1分钟内重启."""
-        now = datetime.datetime.now()
-        reboot_time = now + datetime.timedelta(minutes=1)
+ 
+        tz = pytz.timezone("Asia/Shanghai")
+        now = datetime.now(tz)
+        reboot_time = now + timedelta(minutes=1)
         payload = {
             "enabled": "yes", "event": "reboot", "strategy": "one",
             "cycle_time": reboot_time.strftime("%Y-%m-%d"),
             "time": reboot_time.strftime("%H:%M"),
-            "tagname": "HA_Reboot", "comment": "Triggered by HA"
+            "tagname": "HA_Reboot", "comment": "Reboot"
         }
         await self._make_request("POST", "/api/v4.0/system/reboot-schedules", json_data=payload)
         return True

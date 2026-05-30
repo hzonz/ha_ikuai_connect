@@ -100,10 +100,10 @@
         }
       },
       "connection_count": { "name": "Total Connection Count" },
-      "sys_upload_speed": { "name": "Total Upload Speed", "state_attributes": { "ipv6_upload_speed": { "name": "IPv6 Upload Speed" } } },
-      "sys_download_speed": { "name": "Total Download Speed", "state_attributes": { "ipv6_download_speed": { "name": "IPv6 Download Speed" } } },
-      "sys_total_up": { "name": "Total Upload Traffic", "state_attributes": { "ipv6_total_upload": { "name": "IPv6 Total Upload" } } },
-      "sys_total_down": { "name": "Total Download Traffic", "state_attributes": { "ipv6_total_download": { "name": "IPv6 Total Download" } } },
+      "sys_upload_speed": { "name": "System Upload Speed", "state_attributes": { "ipv6_upload_speed": { "name": "IPv6 Upload Speed" } } },
+      "sys_download_speed": { "name": "System Download Speed", "state_attributes": { "ipv6_download_speed": { "name": "IPv6 Download Speed" } } },
+      "sys_total_up": { "name": "System Total Upload", "state_attributes": { "ipv6_total_upload": { "name": "IPv6 Total Upload" } } },
+      "sys_total_down": { "name": "System Total Download", "state_attributes": { "ipv6_total_download": { "name": "IPv6 Total Download" } } },
       "uptime": { 
         "name": "System Uptime",
         "state_attributes": {
@@ -178,7 +178,7 @@
     "event": { 
       "message_center": { "name": "System Message Notification" },
       "terminal_presence_log": { 
-        "name": "Terminal Online/Offline Log",
+        "name": "Terminal Online and Offline Log",
         "state_attributes": {
           "mac": { "name": "MAC Address" },
           "ip": { "name": "IP Address" },
