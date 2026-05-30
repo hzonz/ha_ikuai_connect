@@ -164,7 +164,7 @@ class IkuaiDiskSensor(CoordinatorEntity[IkuaiCoordinator], SensorEntity):
             return disk_data.get("base_info", {})
         
         # 如果是“已用容量”实体，展示分区列表
-        if self.entity_description.key == "disk_used_size":
+        if self.entity_description.key == "disk_used_capacity":
             return {"partitions": disk_data.get("partitions", [])}
             
         return {}

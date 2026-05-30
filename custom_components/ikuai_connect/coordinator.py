@@ -368,8 +368,8 @@ class IkuaiCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     },
                     "state": {
                         "disk_physical_size": d.get("size"),
-                        "disk_usage_pct": usage_pct,
-                        "disk_used_size": used_bytes
+                        "disk_usage_rate": usage_pct,
+                        "disk_used_capacity": used_bytes
                     },
                     "partitions": partitions
                 }
