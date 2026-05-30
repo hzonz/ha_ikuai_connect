@@ -16,20 +16,28 @@ _LOGGER = logging.getLogger(__name__)
 
 # 定义缓存时长（秒）
 CACHE_TTL = {
+    # 主设备核心监控类
     "/api/v4.0/monitoring/system": 0,               # 系统负载：实时
     "/api/v4.0/monitoring/clients-online": 15,       # 终端列表：15秒
     "/api/v4.0/monitoring/wireless-statistics": 30,  # 无线统计：30秒
+    "/api/v4.0/monitoring/interfaces-traffic-v6": 15, # IPv6流量：15秒    
+    "/api/v4.0/monitoring/wireless-score": 60,       # 无线评分：1分钟
+    # 接口管理类
     "/api/v4.0/monitoring/interfaces-status": 30,     # 线路状态：30秒
     "/api/v4.0/monitoring/interfaces-config": 3600,  # 线路配置：1小时
-    "/api/v4.0/monitoring/interfaces-traffic-v6": 15, # IPv6流量：15秒
-    "/api/v4.0/monitoring/wireless-score": 60,       # 无线评分：1分钟
+    # 日志与事件类
     "/api/v4.0/log/message-center?limit=5": 60,      # 消息中心：1分钟
-    "/api/v4.0/log/terminal-presence?limit=5&order=desc&order_by=timestamp&page=1": 30,   # 上下线日志：30秒
+    "/api/v4.0/log/terminal-presence?limit=10&order=desc&order_by=id": 0,   # 上下线日志：实时
+    "/api/v4.0/log/ddns?limit=10&order=desc&order_by=id": 60,   # DDNS日志：1分钟
+    "/api/v4.0/log/wireless?limit=10&order=desc&order_by=id": 0,   # 无线日志：实时
+    # 安全管理类
     "/api/v4.0/security/mac-mode": 60,               # MAC模式：1分钟
     "/api/v4.0/security/mac-rules?limit=100": 60,    # MAC规则：1分钟
+    # 升级与备份类
     "/api/v4.0/system/backup": 3600,                  # 备份列表：1小时
     "/api/v4.0/system/upgrade": 3600,                # 固件信息：1小时
     "/api/v4.0/system/upgrade:status": 0,            # 升级进度：实时
+    # 存储磁盘类
     "/api/v4.0/system/disks": 3600,                  # 磁盘信息：1小时
 }
 
@@ -128,6 +136,14 @@ class IkuaiAPI:
         """获取无线AP统计 (/api/v4.0/monitoring/wireless-statistics)"""
         return await self._make_request("GET", "/api/v4.0/monitoring/wireless-statistics")
 
+    async def get_wifi_score(self) -> dict[str, Any]:
+        """获取无线网络评分 (/api/v4.0/monitoring/wireless-score)"""
+        return await self._make_request("GET", "/api/v4.0/monitoring/wireless-score")
+
+    async def get_v6_traffic(self) -> dict[str, Any]:
+        """获取IPv6线路详情 (/api/v4.0/monitoring/interfaces-traffic-v6)"""
+        return await self._make_request("GET", "/api/v4.0/monitoring/interfaces-traffic-v6")
+
     # --- 接口与流量类 (Network Interfaces) ---
 
     async def get_iface_status(self) -> dict[str, Any]:
@@ -143,26 +159,26 @@ class IkuaiAPI:
     #     """获取内外网接口配置 (/api/v4.0/monitoring/interfaces-config)"""
     #     return await self._make_request("GET", "/api/v4.0/monitoring/interfaces-config")
 
-    async def get_v6_traffic(self) -> dict[str, Any]:
-        """获取IPv6线路详情 (/api/v4.0/monitoring/interfaces-traffic-v6)"""
-        return await self._make_request("GET", "/api/v4.0/monitoring/interfaces-traffic-v6")
-
-    async def get_wifi_score(self) -> dict[str, Any]:
-        """获取无线网络评分 (/api/v4.0/monitoring/wireless-score)"""
-        return await self._make_request("GET", "/api/v4.0/monitoring/wireless-score")
-
     # --- 日志与事件类 (Logs & Events) ---
 
     async def get_message_center(self) -> dict[str, Any]:
         """获取消息中心列表 (/api/v4.0/log/message-center)"""
         return await self._make_request("GET", "/api/v4.0/log/message-center?limit=2")
 
-    async def get_offline_history(self) -> dict[str, Any]:
+    async def get_presence_logs(self) -> dict[str, Any]:
         """获取终端上下线日志 (/api/v4.0/log/terminal-presence)"""
-        params = "limit=5&order=desc&order_by=timestamp&page=1"
-        endpoint = f"/api/v4.0/log/terminal-presence?{params}"
-        
-        return await self._make_request("GET", endpoint)
+        params = "limit=10&order=desc&order_by=id"     
+        return await self._make_request("GET", f"/api/v4.0/log/terminal-presence?{params}")
+
+    async def get_ddns_logs(self) -> dict[str, Any]:
+        """获取动态域名日志 (GET /api/v4.0/log/ddns)."""
+        params = "limit=10&order=desc&order_by=id"
+        return await self._make_request("GET", f"/api/v4.0/log/ddns?{params}")
+
+    async def get_wireless_logs(self) -> dict[str, Any]:
+        """获取无线终端上下线日志 (GET /api/v4.0/log/wireless)."""
+        params = "limit=10&order=desc&order_by=id"
+        return await self._make_request("GET", f"/api/v4.0/log/wireless?{params}")
 
     # --- 安全管理类 (Security) ---
 
@@ -173,6 +189,8 @@ class IkuaiAPI:
     async def get_mac_rules(self) -> dict[str, Any]:
         """获取MAC黑白名单策略列表 (/api/v4.0/security/mac-rules)"""
         return await self._make_request("GET", "/api/v4.0/security/mac-rules?limit=100")
+
+    # --- 升级与备份类 (Upgrade & Backup) ---
 
     async def get_backup_list(self) -> dict[str, Any]:
         """获取备份信息 (/api/v4.0/system/backup)"""
@@ -286,35 +304,36 @@ class IkuaiAPI:
         """
         async def _get_empty(): return {"data": []}
 
-        # 批次 1：核心负载 (3个并发)
+        # 批次 1：核心监控类 (3个并发)
         batch_1 = await asyncio.gather(
-            self.get_system_info(),                                              # 0
-            self.get_lan_devices(),                                              # 1
-            self.get_wifi_stats(),                                               # 2
+            self.get_system_info(),                          # 1 系统负载
+            self.get_lan_devices(),                          # 2 终端列表
+            self.get_wifi_stats(),                           # 3 无线统计
+            self.get_wifi_score(),                           # 4 无线评分
+            self.get_v6_traffic(),                           # 5 IPv6流量       
             return_exceptions=True
         )
 
-        # 批次 2：链路质量 (3个并发)
+        # 批次 2：日志与事件 (3个并发)
         batch_2 = await asyncio.gather(
-            self.get_iface_status(),                                             # 3
-            self.get_v6_traffic(),                                               # 4
-            self.get_wifi_score(),                                               # 5
+            self.get_iface_status(),                         # 6 线路状态
+            self.get_message_center(),                       # 7 消息中心
+            self.get_presence_logs(),                     # 8 上下线日志
+            self.get_ddns_logs(),                            # 9 DDNS日志       
+            self.get_wireless_logs(),                        # 10 无线日志   
             return_exceptions=True
         )
 
-        # 批次 3：日志与管理 (8个并发)
-        # 这部分利用了高 TTL 缓存，实际发起的网络请求通常只有 2-3 个
-        batch_3 = await asyncio.gather(
-            self.get_message_center(),                                           # 6
-            self.get_offline_history(),                                          # 7
-            self.get_mac_mode(),                                                 # 8
-            self.get_mac_rules(),                                                # 9
-            self.get_backup_list(),                                              # 10
-            self.get_upgrade_info(),                                             # 11
-            self.get_upgrade_status(),                                           # 12
-            self.get_disks(),                                                    # 13
+        # 批次 3：安全与维护 (3个并发)
+        batch_3 = await asyncio.gather(                                                                                           # 7
+            self.get_mac_mode(),                              # 11 MAC模式
+            self.get_mac_rules(),                             # 12 MAC规则
+            self.get_backup_list(),                           # 13 备份列表
+            self.get_upgrade_info(),                          # 14 升级信息
+            self.get_upgrade_status(),                        # 15 升级状态
+            self.get_disks(),                                 # 16 磁盘信息
             return_exceptions=True
         )
 
-        # 完美拼装 0-13 顺序
+        # 完美拼装 0-16 顺序
         return [*batch_1, *batch_2, *batch_3]
