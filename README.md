@@ -3,7 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/hzonz/ha_ikuai_connect)](https://github.com/hzonz/ha_ikuai_connect/releases)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/hzonzha_ikuai_connect/blob/main/LICENSE)
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-![](https://komarev.com/ghpvc/?username=ha_ikuai_connect&color=ff69b4)
+![](https://komarev.com/ghpvc/?username=hzonz&color=ff69b4)
 
 ## iKuai Connect 是专为 Home Assistant 打造的爱快（iKuai）路由器深度集成插件。不同于传统的网页模拟登录，本项目完全基于 **iKuai OpenAPI 3.1 (v4.0接口)** 构建，提供极速、稳定且安全的网络监控与自动化体验。
 
